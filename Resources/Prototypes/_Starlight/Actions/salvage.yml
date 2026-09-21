@@ -1,0 +1,5 @@
+- type: entity
+  parent: BaseToggleAction
+  id: ActionToggleSalvagePryingGloves
+  name: Toggle prying gloves
+  description: Toggle the integrated prying function of the salvage gloves.

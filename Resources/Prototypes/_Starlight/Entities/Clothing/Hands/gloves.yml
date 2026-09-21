@@ -146,6 +146,20 @@
       fiberColor: fibers-brown
 
 - type: entity
+  parent: [ ClothingHandsSalvageMercGlovesCombat, BaseToggleClothing ]
+  id: ClothingHandsSalvagePryingGloves
+  name: prying salvage gloves
+  description: Salvage gloves with an integrated tool for prying doors open.
+  components:
+    - type: ToggleClothing
+      action: ActionToggleSalvagePryingGloves
+      disableOnUnequip: true
+    - type: ComponentToggler
+      parent: true
+      components:
+        - type: Prying
+
+- type: entity
   parent: ClothingHandsButcherable
   id: RedRegaliaGloves
   name: red regalia gloves
