@@ -1,0 +1,17 @@
+- type: entity
+  parent: [BaseOrganBrain, BaseHumanOrgan]
+  id: RemoteControlBrain
+  name: remote-control-brain-name
+  description: remote-control-brain-description
+  components:
+  - type: Sprite
+    sprite: Objects/Specific/Robotics/mmi.rsi
+    layers:
+    - state: posibrain
+  - type: Eye
+  - type: ContentEye
+  - type: RemoteControlBrain
+  - type: BorgBrain
+  - type: DeviceLinkSink
+    ports:
+    - RemoteControl
