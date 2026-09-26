@@ -51,10 +51,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         _window.OpenCentered();
     }
 
-    private void OnWindowClosed()
-    {
-        Close();
-    }
+    private void OnWindowClosed() => Close();
 
     protected override void UpdateState(BoundUserInterfaceState state)
     {
