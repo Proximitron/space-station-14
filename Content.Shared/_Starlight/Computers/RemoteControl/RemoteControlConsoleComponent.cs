@@ -13,4 +13,7 @@ public sealed partial class RemoteControlConsoleComponent : Component
 
     [ViewVariables]
     public EntityUid? Controller;
+
+    [ViewVariables]
+    public bool BorgActivatedByRemote;
 }

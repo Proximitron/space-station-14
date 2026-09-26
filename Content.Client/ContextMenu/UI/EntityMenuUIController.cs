@@ -3,12 +3,14 @@ using System.Numerics;
 using Content.Client.CombatMode;
 using Content.Client.Examine;
 using Content.Client.Gameplay;
+using Content.Client._Starlight.Computers.RemoteControl;
 using Content.Client.Verbs;
 using Content.Client.Verbs.UI;
 using Content.Shared.CCVar;
 using Content.Shared.Examine;
 using Content.Shared.IdentityManagement;
 using Content.Shared.Input;
+using Content.Shared._Starlight.Computers.RemoteControl;
 using Content.Shared.Verbs;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
@@ -44,6 +46,9 @@ namespace Content.Client.ContextMenu.UI
         [Dependency] private IGameTiming _gameTiming = default!;
         [Dependency] private IUserInterfaceManager _userInterfaceManager = default!;
         [Dependency] private IEyeManager _eyeManager = default!;
+        #region Starlight
+        [UISystemDependency] private RemoteControlInterface _remoteControl = default!;
+        #endregion
         [Dependency] private ContextMenuUIController _context = default!;
         [Dependency] private VerbMenuUIController _verb = default!;
 
@@ -120,7 +125,8 @@ namespace Content.Client.ContextMenu.UI
             // do examination?
             if (args.Function == ContentKeyFunctions.ExamineEntity)
             {
-                _systemManager.GetEntitySystem<ExamineSystem>().DoExamine(entity.Value);
+                _systemManager.GetEntitySystem<ExamineSystem>().DoExamine(entity.Value,
+                    userOverride: _remoteControl.ControlledEntity); // Starlight: userOverride is the remote user if we're controlling a remote entity
                 args.Handle();
                 return;
             }
@@ -133,6 +139,20 @@ namespace Content.Client.ContextMenu.UI
                 args.Function == ContentKeyFunctions.TryPullObject ||
                 args.Function == ContentKeyFunctions.MovePulledObject)
             {
+                // Starlight - start
+                // Remote control binds
+                if (_remoteControl.ControlledEntity is { } remoteUser)
+                {
+                    _remoteControl.RequestInteraction(entity.Value,
+                        args.Function == ContentKeyFunctions.AltActivateItemInWorld,
+                        args.Function == ContentKeyFunctions.TryPullObject
+                            ? RemoteControlInteractionAction.TryPull
+                            : RemoteControlInteractionAction.Interact);
+                    _context.Close();
+                    args.Handle();
+                    return;
+                }
+                // Starlight - end
                 var inputSys = _systemManager.GetEntitySystem<InputSystem>();
 
                 var func = args.Function;
@@ -188,6 +208,9 @@ namespace Content.Client.ContextMenu.UI
                 return;
 
             if (!_context.RootMenu.Visible)
+                return;
+
+            if (_remoteControl.ControlledEntity != null)
                 return;
 
             if (_playerManager.LocalEntity is not { } player ||

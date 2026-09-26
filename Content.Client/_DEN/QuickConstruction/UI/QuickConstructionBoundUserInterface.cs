@@ -17,7 +17,6 @@ public sealed partial class QuickConstructionBoundUserInterface : BoundUserInter
 {
     [Dependency] private IPrototypeManager _prototypeManager = default!;
     [Dependency] private IPlacementManager _placementMan = default!;
-
     private SimpleRadialMenu? _menu;
 
     public QuickConstructionBoundUserInterface(EntityUid owner, Enum uiKey) : base(owner, uiKey) =>
@@ -39,6 +38,8 @@ public sealed partial class QuickConstructionBoundUserInterface : BoundUserInter
         _menu.SetButtons(models);
         _menu.OpenOverMouseScreenPosition();
     }
+
+    public void OpenRemote() => Open();
 
     // Starlight Edit Start
     private IEnumerable<RadialMenuOptionBase> ConvertToButtons(

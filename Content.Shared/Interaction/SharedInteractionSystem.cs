@@ -280,18 +280,17 @@ namespace Content.Shared.Interaction
                 return true;
             }
 
-            //is this user trying to pull themself?
-            if (userEntity.Value == uid)
-                return false;
-
-            if (Deleted(uid))
-                return false;
-
-            if (!InRangeUnobstructed(userEntity.Value, uid, popup: true))
-                return false;
-
-            _pullSystem.TogglePull(uid, userEntity.Value);
+            TryPullObject(userEntity.Value, uid);
             return false;
+        }
+
+        // Starlight: RemoteControl uses the same pull validation with the controlled entity as puller.
+        public void TryPullObject(EntityUid user, EntityUid uid)
+        {
+            if (user == uid || Deleted(uid) || !InRangeUnobstructed(user, uid, popup: true))
+                return;
+
+            _pullSystem.TogglePull(uid, user);
         }
 
         /// <summary>
@@ -404,10 +403,15 @@ namespace Content.Shared.Interaction
             bool checkAccess = true,
             bool checkCanUse = true)
         {
-            if (_relayQuery.TryComp(user, out var relay) && relay.RelayEntity is not null)
+            // Starlight: Activatable UIs must remain owned by the controller. Mouse interaction uses this path,
+            // while the direct activation key already bypasses the relay and uses the controller as the actor
+            if ((target is not { } activatableTarget || !_uiQuery.HasComp(activatableTarget))
+                && _relayQuery.TryComp(user, out var relay)
+                && relay.RelayEntity is not null)
             {
                 // TODO this needs to be handled better. This probably bypasses many complex can-interact checks in weird roundabout ways.
-                if (_actionBlockerSystem.CanInteract(user, target))
+                // Starlight: controller blockers are checked on the source and target checks run for the relay body
+                if (_actionBlockerSystem.CanInteract(user, null))
                 {
                     UserInteraction(relay.RelayEntity.Value,
                         coordinates,
@@ -1180,15 +1184,21 @@ namespace Content.Shared.Interaction
             bool checkDeletion = true)
         {
             if (checkDeletion && (IsDeleted(user) || IsDeleted(used)))
+            {
                 return false;
+            }
 
             DebugTools.Assert(!IsDeleted(user) && !IsDeleted(used));
             _delayQuery.TryComp(used, out var delayComponent);
             if (checkUseDelay && delayComponent != null && _useDelay.IsDelayed((used, delayComponent)))
+            {
                 return false;
+            }
 
             if (checkCanInteract && !_actionBlockerSystem.CanInteract(user, used))
+            {
                 return false;
+            }
 
             if (checkAccess && !InRangeUnobstructed(user, used))
                 return false;
@@ -1520,10 +1530,10 @@ namespace Content.Shared.Interaction
             // End Stellar/ES Additions - Interaction particles
         }
 
-
         private void HandleUserInterfaceRangeCheck(ref BoundUserInterfaceCheckRangeEvent ev)
         {
-            if (ev.Result == BoundUserInterfaceRangeResult.Fail)
+            // Starlight: Respect explicit range results from specialized UI handlers.
+            if (ev.Result != BoundUserInterfaceRangeResult.Default)
                 return;
 
             ev.Result = UiRangeCheck(ev.Actor!, ev.Target, ev.Data.InteractionRange)

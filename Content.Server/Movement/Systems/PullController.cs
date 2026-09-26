@@ -116,6 +116,11 @@ public sealed partial class PullController : VirtualController
             return false;
         }
 
+        return MovePulledObject(player, coords);
+    }
+
+    public bool MovePulledObject(EntityUid player, EntityCoordinates coords)
+    {
         if (!_pullerQuery.TryComp(player, out var pullerComp))
             return false;
 

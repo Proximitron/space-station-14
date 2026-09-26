@@ -3,6 +3,7 @@ using System.Numerics;
 using Content.Client.Examine;
 using Content.Client.Gameplay;
 using Content.Client.Popups;
+using Content.Client._Starlight.Computers.RemoteControl;
 using Content.Shared.CCVar;
 using Content.Shared.Examine;
 using Content.Shared.Tag;
@@ -34,6 +35,7 @@ namespace Content.Client.Verbs
         [Dependency] private SharedContainerSystem _containers = default!;
         [Dependency] private IConfigurationManager _cfg = default!;
         [Dependency] private EntityLookupSystem _lookup = default!;
+        [Dependency] private RemoteControlInterface _remoteControl = default!;
 
         private float _lookupSize;
 
@@ -64,17 +66,24 @@ namespace Content.Client.Verbs
         /// </summary>
         /// <returns>True if any entities were found.</returns>
         public bool TryGetEntityMenuEntities(MapCoordinates targetPos, [NotNullWhen(true)] out List<EntityUid>? entities)
+            => TryGetEntityMenuEntities(targetPos, null, null, out entities);
+
+        public bool TryGetEntityMenuEntities(MapCoordinates targetPos, EntityUid? userOverride,
+            bool? drawFovOverride, [NotNullWhen(true)] out List<EntityUid>? entities)
         {
             entities = null;
 
             if (_stateManager.CurrentState is not GameplayStateBase)
                 return false;
 
-            if (_playerManager.LocalEntity is not { } player)
+            var player = userOverride ?? _playerManager.LocalEntity;
+            if (player is not { } playerEntity)
                 return false;
 
             // If FOV drawing is disabled, we will modify the visibility option to ignore visiblity checks.
-            var visibility = _eyeManager.CurrentEye.DrawFov ? Visibility : Visibility | MenuVisibility.NoFov;
+            var visibility = (drawFovOverride ?? _eyeManager.CurrentEye.DrawFov)
+                ? Visibility
+                : Visibility | MenuVisibility.NoFov;
 
             var ev = new MenuVisibilityEvent
             {
@@ -82,7 +91,7 @@ namespace Content.Client.Verbs
                 Visibility = visibility,
             };
 
-            RaiseLocalEvent(player, ref ev);
+            RaiseLocalEvent(playerEntity, ref ev);
             visibility = ev.Visibility;
 
             // Initially, we include all entities returned by a sprite area lookup
@@ -96,7 +105,7 @@ namespace Content.Client.Verbs
 
             // If we're in a container list all other entities in it.
             // E.g., allow players in lockers to examine / interact with other entities in the same locker
-            if (_containers.TryGetContainingContainer((player, null), out var container))
+            if (_containers.TryGetContainingContainer((playerEntity, null), out var container))
             {
                 // Only include the container contents when clicking near it.
                 if (entities.Contains(container.Owner)
@@ -137,10 +146,10 @@ namespace Content.Client.Verbs
             // Do we have to do FoV checks?
             if ((visibility & MenuVisibility.NoFov) == 0)
             {
-                TryComp(player, out ExaminerComponent? examiner);
+                TryComp(playerEntity, out ExaminerComponent? examiner);
                 for (var i = entities.Count - 1; i >= 0; i--)
                 {
-                    if (!_examine.CanExamine(player, targetPos, e => e == player, entities[i], examiner))
+                    if (!_examine.CanExamine(playerEntity, targetPos, e => e == playerEntity, entities[i], examiner))
                         entities.RemoveSwap(i);
                 }
             }
@@ -208,7 +217,8 @@ namespace Content.Client.Verbs
         /// </remarks>
         public void ExecuteVerb(NetEntity target, Verb verb)
         {
-            if ( _playerManager.LocalEntity is not {} user)
+            var user = _remoteControl.ControlledEntity ?? _playerManager.LocalEntity;
+            if (user is not { } userEntity)
                 return;
 
             // is this verb actually valid?
@@ -216,14 +226,14 @@ namespace Content.Client.Verbs
             {
                 // maybe send an informative pop-up message.
                 if (!string.IsNullOrWhiteSpace(verb.Message))
-                    _popupSystem.PopupEntity(FormattedMessage.RemoveMarkupOrThrow(verb.Message), user);
+                    _popupSystem.PopupEntity(FormattedMessage.RemoveMarkupOrThrow(verb.Message), userEntity);
 
                 return;
             }
 
             if (verb.ClientExclusive || target.IsClientSide())
                 // is this a client exclusive (gui) verb?
-                ExecuteVerb(verb, user, GetEntity(target));
+                ExecuteVerb(verb, userEntity, GetEntity(target));
             else
                 RaisePredictiveEvent(new ExecuteVerbEvent(target, verb));
         }
