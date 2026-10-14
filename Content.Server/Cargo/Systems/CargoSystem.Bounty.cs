@@ -169,25 +169,12 @@ public sealed partial class CargoSystem
 
     private void OnSold(ref EntitySoldEvent args)
     {
+        // Starlight - start
         foreach (var sold in args.Sold)
         {
-            if (!TryGetBountyLabel(sold, out _, out var component))
-                continue;
-
-            if (component.AssociatedStationId is not { } station || !TryGetBountyFromId(station, component.Id, out var bounty))
-            {
-                continue;
-            }
-
-            if (!IsBountyComplete(sold, bounty.Value))
-            {
-                continue;
-            }
-
-            TryRemoveBounty(station, bounty.Value, false);
-            FillBountyDatabase(station);
-            _adminLogger.Add(LogType.Action, LogImpact.Low, $"Bounty \"{bounty.Value.Bounty}\" (id:{bounty.Value.Id}) was fulfilled");
+            CompleteBountiesInEntity(sold);
         }
+        // Starlight - end
     }
 
     private bool TryGetBountyLabel(EntityUid uid,

@@ -4,12 +4,15 @@ using System.Numerics;
 using Content.IntegrationTests.Fixtures;
 using Content.Server.Cargo.Components;
 using Content.Server.Cargo.Systems;
+using Content.Shared.Cargo;
 using Content.Shared.Cargo.Components;
 using Content.Shared.Cargo.Prototypes;
+using Content.Shared.Labels.EntitySystems;
 using Content.Shared.Mobs.Components;
 using Content.Shared.Prototypes;
 using Content.Shared.Stacks;
 using Content.Shared.Whitelist;
+using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Map;
 using Robust.Shared.Prototypes;
@@ -97,6 +100,64 @@ public sealed class CargoTest : GameTest
             mapSystem.DeleteMap(mapId);
         });
     }
+
+    #region Starlight
+    [Test]
+    public async Task NestedBountyLabelIsCompletedWhenOuterContainerIsSold()
+    {
+        var server = Pair.Server;
+        var testMap = await Pair.CreateTestMap();
+
+        var entManager = server.ResolveDependency<IEntityManager>();
+        var protoManager = server.ResolveDependency<IPrototypeManager>();
+        var cargo = entManager.System<CargoSystem>();
+        var containerSystem = entManager.System<SharedContainerSystem>();
+        var pricing = entManager.System<PricingSystem>();
+        var bountyPrototype = protoManager.Index<CargoBountyPrototype>("BountyDonut");
+        var bounty = new CargoBountyData(bountyPrototype, 1);
+
+        await server.WaitAssertion(() =>
+        {
+            var coordinates = testMap.MapCoords;
+            var station = entManager.SpawnEntity(null, coordinates);
+            var database = entManager.EnsureComponent<StationCargoBountyDatabaseComponent>(station);
+            database.MaxBounties = 0;
+            database.Bounties.Clear();
+            database.Bounties.Add(bounty);
+
+            var outerCrate = entManager.SpawnEntity(null, coordinates);
+            var crateContents = containerSystem.EnsureContainer<Container>(outerCrate, "cargo_contents");
+            var bountyBox = entManager.SpawnEntity(null, coordinates);
+            Assert.That(containerSystem.Insert(bountyBox, crateContents), Is.True);
+
+            var boxContents = containerSystem.EnsureContainer<Container>(bountyBox, "bounty_contents");
+            for (var i = 0; i < bountyPrototype.Entries[0].Amount; i++)
+            {
+                var donut = entManager.SpawnEntity("FoodDonutPink", coordinates);
+                Assert.That(containerSystem.Insert(donut, boxContents), Is.True);
+            }
+
+            var label = entManager.SpawnEntity(null, coordinates);
+            var labelComponent = entManager.EnsureComponent<CargoBountyLabelComponent>(label);
+            labelComponent.Id = bounty.Id;
+            labelComponent.AssociatedStationId = station;
+            var labelContainer = containerSystem.EnsureContainer<Container>(bountyBox, LabelSystem.ContainerName);
+            Assert.That(containerSystem.Insert(label, labelContainer), Is.True);
+
+            Assert.That(cargo.IsBountyComplete(bountyBox, bounty), Is.True);
+            Assert.That(pricing.GetPrice(outerCrate), Is.EqualTo(bountyPrototype.Reward));
+
+            var soldEvent = new EntitySoldEvent(new HashSet<EntityUid> { outerCrate }, station);
+            entManager.EventBus.RaiseLocalEvent(outerCrate, ref soldEvent, broadcast: true);
+
+            var completedBounty = database.History.Single(entry => entry.Id == bounty.Id);
+            Assert.That(completedBounty.Result, Is.EqualTo(CargoBountyHistoryData.BountyResult.Completed));
+            Assert.That(database.Bounties, Is.Empty);
+
+            server.System<SharedMapSystem>().DeleteMap(testMap.MapId);
+        });
+    }
+    #endregion
 
     [Test]
     public async Task NoStaticPriceAndStackPrice()
