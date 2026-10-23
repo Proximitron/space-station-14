@@ -1,0 +1,22 @@
+- type: entity
+  id: Bloomery
+  parent: BaseLathe
+  name: bloomery
+  description: A primitive furnace for turning steelmix and quartzmix powder into steel and glass sheets.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Structures/Machines/bloomery.rsi
+    layers:
+    - state: bloomery
+      map: ["enum.LatheVisualLayers.IsRunning"]
+  - type: MaterialStorage
+    ignoreColor: true
+    whitelist:
+      tags:
+      - BloomeryInput
+  - type: Lathe
+    idleState: bloomery
+    runningState: burning
+    defaultProductionAmount: 1
+    staticPacks:
+    - BloomerySmelting

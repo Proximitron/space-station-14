@@ -189,6 +189,10 @@ public sealed partial class BiomeSystem : SharedBiomeSystem
         component.Layers.Clear();
         component.Template = template.ID;
 
+        // Starlight - start
+        AddStarlightSurfaceResourceLayer(component, template);
+        // Starlight - end
+
         foreach (var layer in template.Layers)
         {
             component.Layers.Add(layer);
@@ -824,10 +828,14 @@ public sealed partial class BiomeSystem : SharedBiomeSystem
                 var ent = Spawn(entPrototype, _mapSystem.GridTileToLocal(gridUid, grid, indices));
 
                 // At least for now unless we do lookups or smth, only work with anchoring.
-                if (_xformQuery.TryGetComponent(ent, out var xform) && !xform.Anchored)
+                // Starlight - start
+                // Keep marked resource pickups loose so players can pick them up.
+                if (_xformQuery.TryGetComponent(ent, out var xform) && !xform.Anchored &&
+                    !ShouldSkipStarlightBiomeAnchoring(ent))
                 {
                     _transform.AnchorEntity((ent, xform), (gridUid, grid), indices);
                 }
+                // Starlight - end
 
                 loadedEntities.Add(ent, indices);
             }

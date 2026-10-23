@@ -1,0 +1,19 @@
+- type: construction
+  name: crafting-menu-name-steelmix-powder
+  id: SteelmixPowder
+  graph: SteelmixPowder
+  startNode: start
+  targetNode: steelmixPowder
+  category: construction-category-materials
+  objectType: Item
+  description: crafting-menu-text-steelmix-powder
+
+- type: construction
+  name: crafting-menu-name-quartzmix-powder
+  id: QuartzmixPowder
+  graph: QuartzmixPowder
+  startNode: start
+  targetNode: quartzmixPowder
+  category: construction-category-materials
+  objectType: Item
+  description: crafting-menu-text-quartzmix-powder

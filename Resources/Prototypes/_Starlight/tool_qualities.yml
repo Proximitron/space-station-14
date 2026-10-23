@@ -4,3 +4,10 @@
   toolName: tool-quality-tearing-tool-name
   spawn: FireAxe
   icon: { sprite: Objects/Weapons/Melee/fireaxe.rsi, state: icon }
+
+- type: tool
+  id: Grinding
+  name: tool-quality-grinding-name
+  toolName: tool-quality-grinding-tool-name
+  spawn: MortarAndPestle
+  icon: { sprite: Objects/Specific/Kitchen/mortar_and_pestle.rsi, state: icon }

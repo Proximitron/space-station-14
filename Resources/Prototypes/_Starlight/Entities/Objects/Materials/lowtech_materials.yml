@@ -1,0 +1,136 @@
+- type: entity
+  parent: MaterialBase
+  id: MaterialStone
+  name: stone
+  description: A piece of stone chipped from rock.
+  suffix: Full
+  components:
+  - type: Stack
+    stackType: Stone
+  - type: Sprite
+    sprite: _Starlight/Objects/Materials/stone.rsi
+    state: stone
+  - type: Item
+    sprite: _Starlight/Objects/Materials/stone.rsi
+    inhandVisuals:
+      left:
+      - state: stone-inhand-left
+      right:
+      - state: stone-inhand-right
+  - type: BiomeUnanchored
+
+- type: entity
+  parent: MaterialStone
+  id: MaterialStone1
+  suffix: Single
+  components:
+  - type: Stack
+    count: 1
+
+- type: entity
+  parent: MaterialBase
+  id: MaterialSteelmixPowder
+  name: steelmix powder
+  description: A powdered mixture of coal and iron ore.
+  suffix: Single
+  components:
+  - type: Stack
+    stackType: SteelmixPowder
+    count: 1
+    baseLayer: base
+    layerStates:
+    - steelmix_powder
+    - steelmix_powder_2
+    - steelmix_powder_3
+    layerFunction: Threshold
+  - type: StackLayerThreshold
+    thresholds: [2, 4]
+  - type: Sprite
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    state: steelmix_powder
+    layers:
+    - state: steelmix_powder
+      map: ["base"]
+  - type: Item
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    size: Tiny
+  - type: PhysicalComposition
+    materialComposition:
+      SteelmixPowder: 100
+  - type: Tag
+    tags:
+    - RawMaterial
+    - BloomeryInput
+  - type: Construction
+    graph: SteelmixPowder
+    node: steelmixPowder
+
+- type: entity
+  parent: MaterialBase
+  id: MaterialQuartzmixPowder
+  name: quartzmix powder
+  description: A powdered mixture of quartz and coal.
+  suffix: Single
+  components:
+  - type: Stack
+    stackType: QuartzmixPowder
+    count: 1
+    baseLayer: base
+    layerStates:
+    - quartzmix_powder
+    - quartzmix_powder_2
+    - quartzmix_powder_3
+    layerFunction: Threshold
+  - type: StackLayerThreshold
+    thresholds: [2, 4]
+  - type: Sprite
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    state: quartzmix_powder
+    layers:
+    - state: quartzmix_powder
+      map: ["base"]
+  - type: Item
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    size: Tiny
+  - type: PhysicalComposition
+    materialComposition:
+      QuartzmixPowder: 100
+  - type: Tag
+    tags:
+    - RawMaterial
+    - BloomeryInput
+  - type: Construction
+    graph: QuartzmixPowder
+    node: quartzmixPowder
+
+- type: entity
+  parent: BaseItem
+  id: IncompleteSteelmixPowder
+  name: corse steelmix powder
+  description: Coal and iron ore ready to be ground together.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    state: steelmix_powder
+  - type: Item
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    size: Tiny
+  - type: Construction
+    graph: SteelmixPowder
+    node: incompleteSteelmixPowder
+
+- type: entity
+  parent: BaseItem
+  id: IncompleteQuartzmixPowder
+  name: corse quartzmix powder
+  description: Quartz and coal ready to be ground together.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    state: quartzmix_powder
+  - type: Item
+    sprite: _Starlight/Objects/Materials/ore_powder.rsi
+    size: Tiny
+  - type: Construction
+    graph: QuartzmixPowder
+    node: incompleteQuartzmixPowder

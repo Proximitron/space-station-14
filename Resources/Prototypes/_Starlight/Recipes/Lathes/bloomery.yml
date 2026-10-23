@@ -1,0 +1,21 @@
+- type: latheRecipe
+  id: BloomerySheetSteel
+  printTicket: false
+  result: SheetSteel1
+  completetime: 5
+  materials:
+    SteelmixPowder: 100
+
+- type: latheRecipe
+  id: BloomerySheetGlass
+  printTicket: false
+  result: SheetGlass1
+  completetime: 5
+  materials:
+    QuartzmixPowder: 100
+
+- type: latheRecipePack
+  id: BloomerySmelting
+  recipes:
+  - BloomerySheetSteel
+  - BloomerySheetGlass

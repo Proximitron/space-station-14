@@ -1,0 +1,25 @@
+- type: constructionGraph
+  id: SteelmixPowder
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: incompleteSteelmixPowder
+      steps:
+      - material: Coal
+        amount: 1
+        doAfter: 1
+      - material: SteelOre
+        amount: 1
+        doAfter: 1
+
+  - node: incompleteSteelmixPowder
+    entity: IncompleteSteelmixPowder
+    edges:
+    - to: steelmixPowder
+      steps:
+      - tool: Grinding
+        doAfter: 5
+
+  - node: steelmixPowder
+    entity: MaterialSteelmixPowder

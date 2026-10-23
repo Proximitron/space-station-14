@@ -222,3 +222,9 @@ construction-graph-tag-holoprojector = any holoprojector
 crafting-menu-name-molo = molotov cocktail
 crafting-menu-text-molo = a timeless classic for any malcontent, anarchy in the palm of your hand.
 construction-graph-tag-drink-bottle = any large glass bottle
+
+crafting-menu-name-steelmix-powder = steelmix powder
+crafting-menu-text-steelmix-powder = Grind one coal and one steel ore together with a mortar and pestle.
+
+crafting-menu-name-quartzmix-powder = quartzmix powder
+crafting-menu-text-quartzmix-powder = Grind two quartz and one coal together with a mortar and pestle.

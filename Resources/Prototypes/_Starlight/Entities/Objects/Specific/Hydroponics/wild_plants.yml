@@ -1,0 +1,35 @@
+# These mature variants become harvestable through the normal plant system after spawning.
+- type: entity
+  parent: PotatoPlants
+  id: StarlightWildPotatoPlants
+  components:
+  - type: PlantHolder
+    age: 10
+
+- type: entity
+  parent: CarrotPlants
+  id: StarlightWildCarrotPlants
+  components:
+  - type: PlantHolder
+    age: 10
+
+- type: entity
+  parent: TomatoPlants
+  id: StarlightWildTomatoPlants
+  components:
+  - type: PlantHolder
+    age: 8
+
+- type: entity
+  parent: WheatPlants
+  id: StarlightWildWheatPlants
+  components:
+  - type: PlantHolder
+    age: 6
+
+- type: entity
+  parent: CornPlants
+  id: StarlightWildCornPlants
+  components:
+  - type: PlantHolder
+    age: 8

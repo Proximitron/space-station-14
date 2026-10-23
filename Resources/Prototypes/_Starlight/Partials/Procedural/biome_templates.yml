@@ -1,0 +1,11 @@
+- type: !PartialOnly biomeTemplate
+  id: Continental
+  layers:
+    - !type:BiomeMetaLayer
+      !CombineIndex:0 template: StarlightLavaWithResources
+    - !type:BiomeMetaLayer
+      !CombineIndex:1 template: StarlightCavesWithResources
+    - !type:BiomeMetaLayer
+      !CombineIndex:2 template: StarlightGrasslandsWithResources
+    - !type:BiomeMetaLayer
+      !CombineIndex:3 template: StarlightSnowWithResources

@@ -1,0 +1,29 @@
+﻿{
+    "version": 1,
+    "license": "CC-BY-SA-3.0",
+    "copyright": "made by Floximo for STARLIGHT",
+    "size": {
+        "x": 32,
+        "y": 32
+    },
+    "states": [
+        {
+            "name": "steelmix_powder"
+        },
+        {
+            "name": "steelmix_powder_2"
+        },
+        {
+            "name": "steelmix_powder_3"
+        },
+        {
+            "name": "quartzmix_powder"
+        },
+        {
+            "name": "quartzmix_powder_2"
+        },
+        {
+            "name": "quartzmix_powder_3"
+        }
+    ]
+}

@@ -1,0 +1,25 @@
+- type: constructionGraph
+  id: QuartzmixPowder
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: incompleteQuartzmixPowder
+      steps:
+      - material: SpaceQuartz
+        amount: 2
+        doAfter: 1
+      - material: Coal
+        amount: 1
+        doAfter: 1
+
+  - node: incompleteQuartzmixPowder
+    entity: IncompleteQuartzmixPowder
+    edges:
+    - to: quartzmixPowder
+      steps:
+      - tool: Grinding
+        doAfter: 5
+
+  - node: quartzmixPowder
+    entity: MaterialQuartzmixPowder

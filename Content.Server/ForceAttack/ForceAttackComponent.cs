@@ -14,7 +14,7 @@ public sealed partial class ForceAttackComponent : Component
     /// The next time this component will attempt to force an attack.
     /// </summary>
     [AutoPausedField]
-    public TimeSpan NextAttack = TimeSpan.MaxValue;
+    public TimeSpan? NextAttack; // Starlight
 
     /// <summary>
     /// Whether an enemy is in range.

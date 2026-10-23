@@ -29,3 +29,19 @@
   icon: { sprite: Objects/Materials/Sheets/metal.rsi, state: brass }
   color: "#407985"
   price: 2
+
+- type: material
+  id: SteelmixPowder
+  stackEntity: MaterialSteelmixPowder
+  name: materials-steelmix-powder
+  unit: materials-unit-piece
+  icon: { sprite: _Starlight/Objects/Materials/ore_powder.rsi, state: steelmix_powder }
+  price: 0.05
+
+- type: material
+  id: QuartzmixPowder
+  stackEntity: MaterialQuartzmixPowder
+  name: materials-quartzmix-powder
+  unit: materials-unit-piece
+  icon: { sprite: _Starlight/Objects/Materials/ore_powder.rsi, state: quartzmix_powder }
+  price: 0.05

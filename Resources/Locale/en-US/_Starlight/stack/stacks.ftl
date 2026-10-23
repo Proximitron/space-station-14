@@ -152,3 +152,18 @@ stack-sandbag = {$amount ->
     [1] sandbag
     *[other] sandbags
 }
+
+stack-stone = {$amount ->
+    [1] stone
+    *[other] stones
+}
+
+stack-steelmix-powder = {$amount ->
+    [1] steelmix powder
+    *[other] steelmix powder
+}
+
+stack-quartzmix-powder = {$amount ->
+    [1] quartzmix powder
+    *[other] quartzmix powder
+}

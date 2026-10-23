@@ -60,6 +60,9 @@
   id: BloodSplatter
 
 - type: Tag
+  id: BloomeryInput # MaterialStorage whitelist: Bloomery
+
+- type: Tag
   id: Bola
 
 - type: Tag

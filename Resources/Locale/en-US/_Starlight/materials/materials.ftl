@@ -16,3 +16,5 @@ materials-raw-bluespace-crystal = Raw Bluespace Crystal
 materials-ntcredit = credit
 materials-salvage-ticket = ticket
 materials-crushed-phosphorus = red phosphorus
+materials-steelmix-powder = steelmix powder
+materials-quartzmix-powder = quartzmix powder

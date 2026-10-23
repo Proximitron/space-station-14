@@ -1,0 +1,20 @@
+- type: stack
+  parent: BaseMediumStack
+  id: Stone
+  name: stack-stone
+  icon: { sprite: /Textures/_Starlight/Objects/Materials/stone.rsi, state: stone }
+  spawn: MaterialStone1
+
+- type: stack
+  parent: BaseVerySmallStack
+  id: SteelmixPowder
+  name: stack-steelmix-powder
+  icon: { sprite: /Textures/_Starlight/Objects/Materials/ore_powder.rsi, state: steelmix_powder }
+  spawn: MaterialSteelmixPowder
+
+- type: stack
+  parent: BaseVerySmallStack
+  id: QuartzmixPowder
+  name: stack-quartzmix-powder
+  icon: { sprite: /Textures/_Starlight/Objects/Materials/ore_powder.rsi, state: quartzmix_powder }
+  spawn: MaterialQuartzmixPowder
