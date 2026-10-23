@@ -1,0 +1,52 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      xmlns:ui="clr-namespace:Content.Client._Starlight.Telescience.UI"
+                      Title="{Loc 'telescience-console-title'}"
+                      Resizable="True"
+                      SetSize="1040 760"
+                      MinSize="820 620">
+    <BoxContainer Orientation="Vertical" HorizontalExpand="True" VerticalExpand="True">
+        <BoxContainer Orientation="Horizontal" HorizontalExpand="True" VerticalExpand="True">
+            <ui:TelescienceMapControl Name="Map" Margin="6" HorizontalExpand="True" VerticalExpand="True" />
+
+            <BoxContainer Orientation="Vertical" SetWidth="310" Margin="0 0 10 8" VerticalExpand="True">
+                <controls:StripeBack>
+                    <PanelContainer>
+                        <Label Name="RoundLabel"
+                               HorizontalAlignment="Center" Margin="0 5 0 3" StyleClasses="LabelBig" />
+                    </PanelContainer>
+                </controls:StripeBack>
+
+                <Label Name="TriesLabel"
+                       HorizontalAlignment="Center" Margin="0 10 0 4" />
+                <RichTextLabel Name="Instructions" HorizontalExpand="True" Margin="8 4 8 8" />
+                <Label Name="PingOvershootLabel" HorizontalExpand="True" Margin="8 0 8 0" />
+                <Label Name="PinpointRadiusLabel" HorizontalExpand="True" Margin="8 0 8 8" />
+                <Label Name="CoordinateLabel" Margin="8 3 8 8" />
+                <Label Name="TargetLabel" HorizontalExpand="True" Margin="8 0 8 8" Visible="False" />
+
+                <BoxContainer Orientation="Horizontal" Margin="6 0 6 0">
+                    <Button Name="PingMode" Text="{Loc 'telescience-console-ping-mode'}" HorizontalExpand="True" />
+                    <Button Name="PinpointMode" Text="{Loc 'telescience-console-pinpoint-mode'}" HorizontalExpand="True" />
+                </BoxContainer>
+                <Button Name="ExecuteButton" Text="{Loc 'telescience-console-send-ping'}"
+                        HorizontalExpand="True" Margin="6 5 6 0" />
+                <RichTextLabel Name="StatusLabel" HorizontalExpand="True" Margin="8 8 8 8" />
+
+                <PanelContainer StyleClasses="LowDivider" Margin="6 4 6 6" />
+                <Label Text="{Loc 'telescience-console-history-title'}" StyleClasses="LabelBig" Margin="8 0 8 5" />
+                <ScrollContainer VerticalExpand="True" HorizontalExpand="True" Margin="6 0 6 0">
+                    <BoxContainer Name="AttemptHistory" Orientation="Vertical" HorizontalExpand="True" Margin="4" />
+                </ScrollContainer>
+
+                <Button Name="NewRoundButton" Text="{Loc 'telescience-console-new-round'}"
+                        HorizontalExpand="True" Margin="6 8 6 0" Visible="False" />
+            </BoxContainer>
+        </BoxContainer>
+
+        <PanelContainer StyleClasses="LowDivider" />
+        <BoxContainer Orientation="Horizontal" Margin="10 3 10 2">
+            <Label Text="{Loc 'telescience-console-footer'}" StyleClasses="WindowFooterText" />
+        </BoxContainer>
+    </BoxContainer>
+</controls:FancyWindow>

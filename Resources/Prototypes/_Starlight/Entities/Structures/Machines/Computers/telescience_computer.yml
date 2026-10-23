@@ -1,0 +1,33 @@
+- type: entity
+  parent: BaseComputerAiAccess
+  id: ComputerTelescience
+  name: telescience computer
+  description: A computer for locating distant points in space with experimental telescope pings.
+  components:
+  - type: Sprite
+    layers:
+    - map: ["computerLayerBody"]
+      state: computer
+    - map: ["computerLayerKeyboard"]
+      state: generic_keyboard
+    - map: ["computerLayerScreen"]
+      state: solar_screen
+    - map: ["computerLayerKeys"]
+      state: generic_keys
+    - map: ["enum.WiresVisualLayers.MaintenancePanel"]
+      state: generic_panel_open
+  - type: TelescienceConsole
+    maxTries: 8
+    minPingOvershoot: 12
+    maxPingOvershoot: 64
+    pinpointRadius: 32
+  - type: ActivatableUI
+    key: enum.TelescienceConsoleUiKey.Key
+  - type: UserInterface
+    interfaces:
+      enum.TelescienceConsoleUiKey.Key:
+        type: TelescienceConsoleBoundUserInterface
+      enum.WiresUiKey.Key:
+        type: WiresBoundUserInterface
+  - type: Computer
+    board: ComputerTelescienceCircuitboard

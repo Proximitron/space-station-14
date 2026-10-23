@@ -1,0 +1,10 @@
+- type: entity
+  parent: BaseComputerCircuitboard
+  id: ComputerTelescienceCircuitboard
+  name: telescience computer board
+  description: A computer board for a telescience computer.
+  components:
+  - type: Sprite
+    state: cpu_science
+  - type: ComputerBoard
+    prototype: ComputerTelescience
