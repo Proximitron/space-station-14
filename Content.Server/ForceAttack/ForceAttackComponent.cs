@@ -14,7 +14,7 @@ public sealed partial class ForceAttackComponent : Component
     /// The next time this component will attempt to force an attack.
     /// </summary>
     [AutoPausedField]
-    public TimeSpan? NextAttack; // Starlight
+    public TimeSpan? NextAttack; // Starlight: overflow caused by adding to MaxValue timespan
 
     /// <summary>
     /// Whether an enemy is in range.
