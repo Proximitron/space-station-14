@@ -1,0 +1,23 @@
+- type: constructionGraph
+  id: PickaxeStone
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: pickaxe
+      completed:
+      - !type:AdminLog
+        message: "Construction"
+        impact: High
+      steps:
+      - material: WoodPlank
+        amount: 2
+        doAfter: 5
+      - tag: Biface
+        name: construction-graph-tag-biface
+        icon:
+          sprite: _Starlight/Objects/Misc/stone_tools.rsi
+          state: biface
+        doAfter: 5
+  - node: pickaxe
+    entity: PickaxeStone

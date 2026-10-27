@@ -1,0 +1,25 @@
+﻿- type: entity
+  parent: BaseItem
+  id: Biface
+  name: stone biface
+  description: A knapped stone tool with a sharp edge.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Misc/stone_tools.rsi
+    state: biface
+  - type: Item
+    sprite: _Starlight/Objects/Misc/stone_tools.rsi
+    size: Small
+  - type: Tag
+    tags:
+    - Biface
+  - type: Tool
+    qualities:
+    - Slicing
+  - type: MeleeWeapon
+    damage:
+      types:
+        Slash: 3
+  - type: Construction
+    graph: Biface
+    node: biface

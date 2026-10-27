@@ -45,6 +45,9 @@
   id: BibleThwackRemovable
 
 - type: Tag
+  id: Biface
+
+- type: Tag
   id: Birthday
 
 - type: Tag

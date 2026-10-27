@@ -524,9 +524,8 @@
         - MaterialStone1
     - !type:BiomeEntityLayer
       allowedTiles:
-        - FloorPlanetGrass
         - FloorPlanetDirt
-      threshold: 0.96
+      threshold: 0.97
       noise:
         seed: 18
         noiseType: Cellular
@@ -539,6 +538,53 @@
         - StarlightWildTomatoPlants
         - StarlightWildWheatPlants
         - StarlightWildCornPlants
+        - StarlightWildCottonPlants
+    - !type:BiomeEntityLayer
+      allowedTiles:
+        - FloorPlanetGrass
+      threshold: 0.95
+      noise:
+        seed: 18
+        noiseType: Cellular
+        frequency: 1
+        cellularReturnType: CellValue
+      entities:
+        - StarlightWildPotatoPlants
+        - StarlightWildPotatoPlants
+        - StarlightWildCarrotPlants
+        - StarlightWildTomatoPlants
+        - StarlightWildWheatPlants
+        - StarlightWildCornPlants
+        - StarlightWildCottonPlants
+    - !type:BiomeEntityLayer
+      allowedTiles:
+        - FloorSnow
+      threshold: 0.97
+      noise:
+        seed: 18
+        noiseType: Cellular
+        frequency: 1
+        cellularReturnType: CellValue
+      entities:
+        - StarlightWildPotatoPlants
+        - StarlightWildPotatoPlants
+        - StarlightWildCarrotPlants
+        - StarlightWildTomatoPlants
+        - StarlightWildWheatPlants
+        - StarlightWildCornPlants
+        - StarlightWildCottonPlants
+    - !type:BiomeEntityLayer
+      allowedTiles:
+        - FloorIce
+        - FloorBasalt
+      threshold: 0.99
+      noise:
+        seed: 18
+        noiseType: Cellular
+        frequency: 1
+        cellularReturnType: CellValue
+      entities:
+        - StarlightWildPotatoPlants
 
 - type: biomeTemplate
   id: StarlightLavaWithResources

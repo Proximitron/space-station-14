@@ -33,3 +33,10 @@
   components:
   - type: PlantHolder
     age: 8
+
+- type: entity
+  parent: CottonPlants
+  id: StarlightWildCottonPlants
+  components:
+  - type: PlantHolder
+    age: 8

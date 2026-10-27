@@ -6,3 +6,15 @@
   category: construction-category-machines
   placementMode: SnapgridCenter
   canBuildInImpassable: false
+
+- type: construction
+  id: Bloomery
+  graph: Bloomery
+  startNode: start
+  targetNode: bloomery
+  category: construction-category-machines
+  objectType: Structure
+  placementMode: SnapgridCenter
+  canBuildInImpassable: false
+  conditions:
+  - !type:TileNotBlocked

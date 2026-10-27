@@ -1,0 +1,39 @@
+﻿- type: constructionGraph
+  id: BifaceConstruct
+  start: start
+  graph:
+  - node: start
+    entity: MaterialStone1
+    edges:
+    - to: biface
+      completed:
+      - !type:AdminLog
+        message: "Construction"
+        impact: High
+      steps:
+      - material: Stone
+        amount: 1
+        doAfter: 10
+  - node: biface
+    entity: Biface
+
+- type: constructionGraph
+  id: Biface
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: biface
+      completed:
+      - !type:AdminLog
+        message: "Construction"
+        impact: High
+      steps:
+      - material: Stone
+        amount: 1
+        doAfter: 5
+      - material: Stone
+        amount: 1
+        doAfter: 5
+  - node: biface
+    entity: Biface

@@ -1,0 +1,15 @@
+- type: construction
+  id: Biface
+  graph: Biface
+  startNode: start
+  targetNode: biface
+  category: construction-category-tools
+  objectType: Item
+
+- type: construction
+  id: PickaxeStone
+  graph: PickaxeStone
+  startNode: start
+  targetNode: pickaxe
+  category: construction-category-tools
+  objectType: Item

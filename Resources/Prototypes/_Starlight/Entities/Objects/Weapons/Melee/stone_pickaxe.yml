@@ -1,0 +1,17 @@
+- type: entity
+  parent: Pickaxe
+  id: PickaxeStone
+  name: stone pickaxe
+  description: A crude pickaxe with a knapped stone head.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Weapons/Melee/pickaxestone.rsi
+    state: pickaxe
+  - type: Item
+    sprite: _Starlight/Objects/Weapons/Melee/pickaxestone.rsi
+  - type: PhysicalComposition
+    materialComposition:
+      Wood: 100
+  - type: Construction
+    graph: PickaxeStone
+    node: pickaxe

@@ -14,8 +14,17 @@
   materials:
     QuartzmixPowder: 100
 
+- type: latheRecipe
+  id: BloomeryCableStack
+  printTicket: false
+  result: CableApcStack1
+  completetime: 5
+  materials:
+    SteelmixPowder: 30
+
 - type: latheRecipePack
   id: BloomerySmelting
   recipes:
   - BloomerySheetSteel
   - BloomerySheetGlass
+  - BloomeryCableStack

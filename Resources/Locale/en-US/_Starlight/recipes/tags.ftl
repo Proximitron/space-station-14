@@ -1,5 +1,6 @@
 construction-graph-tag-disposal-pipe = disposal pipe
 construction-graph-tag-wallmount-mass-scanner-electronics = wallmount mass scanner electronics
+construction-graph-tag-biface = a stone biface
 
 construction-graph-tag-meson = engineering goggles
 construction-graph-tag-shadekin-eye = shadekin eyes

@@ -1,0 +1,23 @@
+- type: constructionGraph
+  id: SpearStone
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: spear
+      completed:
+      - !type:AdminLog
+        message: "Construction"
+        impact: High
+      steps:
+      - material: WoodPlank
+        amount: 2
+        doAfter: 10
+      - tag: Biface
+        name: construction-graph-tag-biface
+        icon:
+          sprite: _Starlight/Objects/Misc/stone_tools.rsi
+          state: biface
+        doAfter: 1
+  - node: spear
+    entity: SpearStone

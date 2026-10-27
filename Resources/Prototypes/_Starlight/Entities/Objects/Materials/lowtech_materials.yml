@@ -26,6 +26,9 @@
   components:
   - type: Stack
     count: 1
+  - type: Construction
+    graph: BifaceConstruct
+    node: start
 
 - type: entity
   parent: MaterialBase

@@ -20,3 +20,12 @@
     defaultProductionAmount: 1
     staticPacks:
     - BloomerySmelting
+  - type: Construction
+    graph: Bloomery
+    node: bloomery
+  - type: ApcPowerReceiver
+    needsPower: false
+    powerLoad: 0
+  - type: PowerState
+    idlePowerDraw: 0
+    workingPowerDraw: 0

@@ -1,0 +1,20 @@
+- type: entity
+  parent: Spear
+  id: SpearStone
+  name: stone spear
+  description: A crude spear tipped with a knapped stone biface.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Weapons/Melee/stone_spear.rsi
+  - type: MeleeWeapon
+    wideAnimationRotation: -135
+    damage:
+      types:
+        Piercing: 12
+  - type: DamageOtherOnHit
+    damage:
+      types:
+        Piercing: 15
+  - type: Construction
+    graph: SpearStone
+    node: spear
