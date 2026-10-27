@@ -1,0 +1,24 @@
+- type: constructionGraph
+  id: WoodenCup
+  start: start
+  graph:
+  - node: start
+    edges:
+    - to: blank
+      steps:
+      - material: WoodPlank
+        amount: 2
+        doAfter: 5
+  - node: blank
+    entity: WoodenCupUnfinished
+    edges:
+    - to: cup
+      completed:
+      - !type:AdminLog
+        message: "Construction"
+        impact: High
+      steps:
+      - tool: Slicing
+        doAfter: 5
+  - node: cup
+    entity: WoodenCup

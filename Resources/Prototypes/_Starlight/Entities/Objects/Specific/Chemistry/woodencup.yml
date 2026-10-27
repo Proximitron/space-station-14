@@ -1,0 +1,32 @@
+- type: entity
+  parent: DrinkBaseCup
+  id: WoodenCup
+  name: wooden cup
+  description: A simple wooden vessel for drinking.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Specific/Chemistry/woodencup.rsi
+    state: woodencup
+  - type: Item
+    sprite: _Starlight/Objects/Specific/Chemistry/woodencup.rsi
+  - type: Icon
+    sprite: _Starlight/Objects/Specific/Chemistry/woodencup.rsi
+    state: woodencup
+  - type: Construction
+    graph: WoodenCup
+    node: cup
+
+- type: entity
+  parent: BaseItem
+  id: WoodenCupUnfinished
+  name: unfinished wooden cup
+  description: A wooden vessel that still needs to be hollowed out.
+  components:
+  - type: Sprite
+    sprite: _Starlight/Objects/Specific/Chemistry/woodencup.rsi
+    state: woodencup
+  - type: Item
+    sprite: _Starlight/Objects/Specific/Chemistry/woodencup.rsi
+  - type: Construction
+    graph: WoodenCup
+    node: blank

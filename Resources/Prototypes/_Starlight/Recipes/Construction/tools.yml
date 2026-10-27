@@ -13,3 +13,11 @@
   targetNode: pickaxe
   category: construction-category-tools
   objectType: Item
+
+- type: construction
+  id: WoodenCup
+  graph: WoodenCup
+  startNode: start
+  targetNode: cup
+  category: construction-category-tools
+  objectType: Item

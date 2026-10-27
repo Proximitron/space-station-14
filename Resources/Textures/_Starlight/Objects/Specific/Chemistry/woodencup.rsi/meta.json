@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "license": "CC-BY-SA-3.0",
+  "copyright": "Taken from https://scrubby.melonmesa.com/dmi/icons/obj/metallurgy.dmi?codebase=civ13, sprites in hands by @mishutka09 colorized by Floximo",
+  "size": {
+    "x": 32,
+    "y": 32
+  },
+  "states": [
+    {
+      "name": "woodencup",
+    },
+    {
+      "name": "inhand-left",
+      "directions": 4
+    },
+    {
+      "name": "inhand-right",
+      "directions": 4
+    }
+  ]
+}
