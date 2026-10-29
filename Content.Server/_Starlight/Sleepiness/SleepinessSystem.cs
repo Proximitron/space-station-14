@@ -83,7 +83,7 @@ public sealed partial class SleepinessSystem : SharedSleepinessSystem
 
     private bool CanInduceSleep(EntityUid target, SleepinessStatusEffectComponent sleepiness)
     {
-        if (sleepiness.SleepInductionThreshold <= FixedPoint2.Zero)
+        if (sleepiness.SleepInductionUnrestricted || sleepiness.SleepInductionThreshold <= FixedPoint2.Zero)
             return true;
 
         if (!TryComp<BloodstreamComponent>(target, out var bloodstream) ||

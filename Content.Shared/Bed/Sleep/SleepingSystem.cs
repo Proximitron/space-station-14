@@ -263,7 +263,7 @@ public sealed partial class SleepingSystem : EntitySystem
         // Starlight - wake power from damage
         var damage = args.DamageDelta.GetTotal();
         if (damage >= ent.Comp.WakeThreshold)
-            TryWaking((ent, ent.Comp), wakePower: TimeSpan.FromSeconds((float) damage / 3));
+            TryWaking((ent, ent.Comp), wakePower: TimeSpan.FromSeconds((float) damage / 5)); // Starlight
     }
 
     /// <summary>

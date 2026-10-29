@@ -86,9 +86,21 @@ public sealed partial class ModifySleepinessEntityEffectSystem : EntityEffectSys
 
     private void SetSleepInductionRequirement(EntityUid effect, ModifySleepiness sleepiness)
     {
-        if (sleepiness.SleepInductionThreshold <= FixedPoint2.Zero ||
-            sleepiness.SleepInductionReagent is not { } reagent ||
-            !TryComp<SleepinessStatusEffectComponent>(effect, out var component))
+        if (!TryComp<SleepinessStatusEffectComponent>(effect, out var component))
+            return;
+
+        if (sleepiness.SleepInductionThreshold <= FixedPoint2.Zero)
+        {
+            if (!component.SleepInductionUnrestricted)
+            {
+                component.SleepInductionUnrestricted = true;
+                Dirty(effect, component);
+            }
+
+            return;
+        }
+
+        if (sleepiness.SleepInductionReagent is not { } reagent)
             return;
 
         component.SleepInductionReagent = reagent;

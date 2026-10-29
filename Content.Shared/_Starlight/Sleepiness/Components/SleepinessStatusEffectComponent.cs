@@ -33,6 +33,11 @@ public sealed partial class SleepinessStatusEffectComponent : Component
     public FixedPoint2 SleepInductionThreshold = FixedPoint2.Zero;
 
     /// <summary>
+    /// Whether a sleepiness source without a reagent threshold has contributed to this effect.
+    /// </summary>
+    public bool SleepInductionUnrestricted;
+
+    /// <summary>
     /// Whether a wake request is pending and should be processed when sleepiness reaches the wake threshold.
     /// Defaults to false.
     /// </summary>
