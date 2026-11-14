@@ -496,7 +496,7 @@ public sealed partial class MindTests
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -512,7 +512,7 @@ public sealed partial class MindTests
             Assert.That(entMan.GetComponent<MindComponent>(mindId).OwnedEntity, Is.EqualTo(borg));
             Assert.That(entMan.GetComponent<StationAiHolderComponent>(cores[0]).Slot.Item, Is.EqualTo(ai));
 
-            var ghost = entMan.SpawnEntity(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
+            var ghost = entMan.Spawn(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
             entMan.System<MindSystem>().TransferTo(mindId, ghost);
         });
         await pair.RunTicksSync(5);
@@ -536,7 +536,7 @@ public sealed partial class MindTests
             AssertStationAiJobSlots(entMan, station, 1);
 
             Assert.That(stationJobs.TryAssignJob(station, "StationAi", userId), Is.True);
-            var nextAi = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            var nextAi = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             var containers = entMan.System<SharedContainerSystem>();
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
@@ -571,7 +571,7 @@ public sealed partial class MindTests
             Assert.That(stationJobs.TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            var ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            var ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -606,7 +606,7 @@ public sealed partial class MindTests
             var userId = entMan.GetComponent<MindComponent>(mindId).UserId!.Value;
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
-            ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             entMan.AddComponent<TestListenerComponent>(ai);
             var containers = entMan.System<SharedContainerSystem>();
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
@@ -653,7 +653,7 @@ public sealed partial class MindTests
             var userId = entMan.GetComponent<MindComponent>(mindId).UserId!.Value;
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
-            var ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            var ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             var containers = entMan.System<SharedContainerSystem>();
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
@@ -661,13 +661,16 @@ public sealed partial class MindTests
             entMan.System<MindSystem>().TransferTo(mindId, ai);
 
             var announcements = entMan.System<StationAiAnnouncementTestSystem>();
-            var position = entMan.System<NavMapSystem>().GetNearestBeaconString(cores[0]);
+            var coordinates = entMan.System<SharedTransformSystem>().GetMapCoordinates(cores[0]);
+            Assert.That(entMan.System<NavMapSystem>().TryGetNearestBeacon(coordinates, out _, out _), Is.False);
             announcements.Clear();
             var mind = entMan.GetComponent<MindComponent>(mindId);
             Assert.That(entMan.System<GhostSystem>().OnGhostAttempt(mindId, true, viaCommand: true, mind: mind),
                 Is.True);
             Assert.That(announcements.LastMessage, Does.Contain("has shut down"));
-            Assert.That(announcements.LastMessage, Does.Contain(position));
+            Assert.That(announcements.LastMessage, Does.Contain("at coordinates X "));
+            Assert.That(announcements.LastMessage, Does.Contain($"X {Math.Round(coordinates.X)}"));
+            Assert.That(announcements.LastMessage, Does.Contain($"Y {Math.Round(coordinates.Y)}"));
         });
     }
 
@@ -684,7 +687,7 @@ public sealed partial class MindTests
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            var ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            var ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -716,7 +719,7 @@ public sealed partial class MindTests
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -758,7 +761,7 @@ public sealed partial class MindTests
             Assert.That(stationJobs.TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            var ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            var ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -819,14 +822,14 @@ public sealed partial class MindTests
         await pair.Server.WaitAssertion(() =>
         {
             var mindSystem = entMan.System<MindSystem>();
-            var ghost = entMan.SpawnEntity(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
+            var ghost = entMan.Spawn(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
             mindSystem.Visit(mindId, ghost);
             Assert.That(entMan.GetComponent<StationAiHolderComponent>(holder).Slot.Item, Is.EqualTo(ai));
 
             var userId = entMan.GetComponent<MindComponent>(mindId).UserId!.Value;
             var newMind = mindSystem.CreateMind(null);
             mindSystem.SetUserId(newMind, userId);
-            var role = entMan.SpawnEntity(null, MapCoordinates.Nullspace);
+            var role = entMan.Spawn(null, MapCoordinates.Nullspace);
             mindSystem.TransferTo(newMind, role);
         });
         await pair.RunTicksSync(5);
@@ -844,7 +847,7 @@ public sealed partial class MindTests
 
         await pair.Server.WaitAssertion(() =>
         {
-            var ghost = entMan.SpawnEntity(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
+            var ghost = entMan.Spawn(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
             entMan.System<MindSystem>().Visit(mindId, ghost);
         });
         await pair.RunTicksSync(5);
@@ -873,7 +876,7 @@ public sealed partial class MindTests
             Assert.That(entMan.System<StationJobsSystem>().TryAssignJob(station, "StationAi", userId), Is.True);
 
             var containers = entMan.System<SharedContainerSystem>();
-            ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -914,7 +917,7 @@ public sealed partial class MindTests
             var containers = entMan.System<SharedContainerSystem>();
             for (var i = 0; i < cores.Length; i++)
             {
-                var ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+                var ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
                 if (!containers.TryGetContainer(cores[i], StationAiCoreComponent.Container, out var container))
                     throw new InvalidOperationException("Station AI core container was not initialized.");
                 Assert.That(containers.Insert(ai, container), Is.True);
@@ -940,7 +943,7 @@ public sealed partial class MindTests
             var mapCoordinates = pair.TestMap!.MapCoords;
             Assert.That(stationJobs.TryAssignJob(station, "StationAi", userId), Is.True);
 
-            ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
+            ai = entMan.Spawn("StationAiBrainConstructed", MapCoordinates.Nullspace);
             if (!containers.TryGetContainer(cores[0], StationAiCoreComponent.Container, out var coreContainer))
                 throw new InvalidOperationException("Station AI core container was not initialized.");
             Assert.That(containers.Insert(ai, coreContainer), Is.True);
@@ -950,6 +953,8 @@ public sealed partial class MindTests
             var user = entMan.Spawn("MobHuman", mapCoordinates);
             holder = entMan.Spawn("Intellicard", mapCoordinates);
             entMan.GetComponent<IntellicardComponent>(holder).DownloadTime = 0;
+            var holderTracker = entMan.AddComponent<StationTrackerComponent>(holder);
+            entMan.System<StationSystem>().SetStation((holder, holderTracker), station);
             Assert.That(entMan.System<SharedHandsSystem>().TryPickupAnyHand(user, holder), Is.True);
 
             var interact = new AfterInteractEvent(
@@ -958,6 +963,7 @@ public sealed partial class MindTests
                 cores[0],
                 entMan.GetComponent<TransformComponent>(holder).Coordinates,
                 true);
+            entMan.System<StationAiAnnouncementTestSystem>().Clear();
             entMan.EventBus.RaiseLocalEvent(holder, interact);
             Assert.That(interact.Handled, Is.True);
         });
@@ -1027,9 +1033,9 @@ public sealed partial class MindTests
     {
         var maps = entMan.System<SharedMapSystem>();
         maps.CreateMap(out var mapId);
-        var borg = entMan.SpawnEntity("BorgChassisGeneric", new MapCoordinates(0, 0, mapId));
+        var borg = entMan.Spawn("BorgChassisGeneric", new MapCoordinates(0, 0, mapId));
         var chassis = entMan.GetComponent<BorgChassisComponent>(borg);
-        var brain = entMan.SpawnEntity("AiInterfaceCube", MapCoordinates.Nullspace);
+        var brain = entMan.Spawn("AiInterfaceCube", MapCoordinates.Nullspace);
         Assert.That(entMan.System<SharedContainerSystem>().Insert(brain, chassis.BrainContainer), Is.True);
 
         var shunt = new AIShuntActionEvent
@@ -1049,6 +1055,7 @@ public sealed partial class MindTests
     public sealed class StationAiAnnouncementTestSystem : EntitySystem
     {
         public string LastMessage { get; private set; } = string.Empty;
+        public int MessageCount { get; private set; }
 
         public override void Initialize()
         {
@@ -1056,9 +1063,17 @@ public sealed partial class MindTests
             SubscribeLocalEvent<AnnouncementSpokeEvent>(OnAnnouncement);
         }
 
-        public void Clear() => LastMessage = string.Empty;
+        public void Clear()
+        {
+            LastMessage = string.Empty;
+            MessageCount = 0;
+        }
 
-        private void OnAnnouncement(AnnouncementSpokeEvent args) => LastMessage = args.Message.Text;
+        private void OnAnnouncement(AnnouncementSpokeEvent args)
+        {
+            LastMessage = args.Message.Text;
+            MessageCount++;
+        }
     }
 
     public sealed class StationAiCoreTerminationProbeSystem : EntitySystem

@@ -10,6 +10,7 @@ using Content.Shared.Chat.Prototypes;
 using Content.Shared._Starlight.Mind.Events;
 using Content.Shared._Starlight.Silicons.Borgs;
 using Content.Shared.Ghost;
+using Content.Shared.Intellicard;
 using Content.Shared.Mind.Components;
 using Content.Shared.Mobs;
 using Content.Shared.Mobs.Components;
@@ -31,6 +32,7 @@ public sealed partial class StationAiSystem
     [Dependency] private SharedActionsSystem _shuntActions = default!;
 
     private const string AiPowerLossAlertEventId = "station-ai-power-loss-alert";
+    private const float AiDeathrattleBeaconMaxDistance = 50f;
     private static readonly TimeSpan _aiPowerLossAlertDelay = TimeSpan.FromSeconds(3);
 
     [SubscribeLocalEvent]
@@ -89,11 +91,10 @@ public sealed partial class StationAiSystem
         }
 
         var inCryostorage = HasComp<CryostorageContainedComponent>(removedMindEntity);
-        var permanentlyGhostedFromAiHolder = args.TransferEntity is { } ghostTarget
+        var permanentlyGhostedFromCore = args.TransferEntity is { } ghostTarget
             && TryComp<GhostComponent>(ghostTarget, out var holderGhost)
             && !holderGhost.CanReturnToBody
-            && wasInAiHolder;
-        var permanentlyGhostedFromCore = permanentlyGhostedFromAiHolder && wasInAiCore;
+            && wasInAiCore;
 
         if (!EjectContainedAi(removedMindEntity) && !permanentlyGhostedFromCore)
             return;
@@ -103,7 +104,7 @@ public sealed partial class StationAiSystem
         if (!wasInAiHolder || inCryostorage)
             return;
 
-        if (permanentlyGhostedFromAiHolder)
+        if (permanentlyGhostedFromCore)
         {
             AnnounceStationAiStatus(removedMindEntity, holder, "station-ai-deathrattle-shutdown");
             return;
@@ -113,6 +114,29 @@ public sealed partial class StationAiSystem
             && (!TryComp<MobStateComponent>(removedMindEntity, out var mobState)
                 || mobState.CurrentState == MobState.Alive))
             AnnounceStationAiStatus(removedMindEntity, holder, "station-ai-deathrattle-connection-lost");
+    }
+
+    [SubscribeLocalEvent]
+    private void OnStationAiCoreContainerRemoved(StationAiCoreContainerRemovedEvent args)
+    {
+        if (TerminatingOrDeleted(args.Ai))
+            return;
+
+        if (TryGetStationAiHolder(args.Ai, out var holder))
+        {
+            if (HasComp<IntellicardComponent>(holder))
+            {
+                if (_mind.TryGetMind(args.Ai, out _, out _))
+                    AnnounceStationAiStatus(args.Ai, holder, "station-ai-deathrattle-download");
+
+                return;
+            }
+
+            if (holder == args.Core)
+                return;
+        }
+
+        AnnounceAiCoreConnectionLost(args.Ai, args.Core);
     }
 
     private void ClearStationAiShunt(EntityUid entity, StationAIShuntComponent shunt)
@@ -216,6 +240,12 @@ public sealed partial class StationAiSystem
         AnnounceStationAiStatus(ai, core, "station-ai-deathrattle-connection-lost");
     }
 
+    private sealed class StationAiCoreContainerRemovedEvent(EntityUid ai, EntityUid core) : EntityEventArgs
+    {
+        public EntityUid Ai { get; } = ai;
+        public EntityUid Core { get; } = core;
+    }
+
     private bool TryGetStationAiCore(EntityUid ai, out EntityUid core)
     {
         core = default;
@@ -245,7 +275,19 @@ public sealed partial class StationAiSystem
     private void AnnounceStationAiStatus(EntityUid ai, EntityUid source, string messageId)
     {
         var aiName = FormattedMessage.RemoveMarkupOrThrow(MetaData(ai).EntityName);
-        var position = FormattedMessage.RemoveMarkupOrThrow(_navMap.GetNearestBeaconString(source));
+        var coordinates = _xforms.GetMapCoordinates(source);
+        var position = _navMap.GetNearestBeaconString(coordinates);
+        if (!_navMap.TryGetNearestBeacon(coordinates, out _, out var nearestBeaconCoordinates)
+            || nearestBeaconCoordinates is not { } beaconCoordinates
+            || (coordinates.Position - beaconCoordinates.Position).Length() > AiDeathrattleBeaconMaxDistance)
+        {
+            position = Loc.GetString(
+                "station-ai-deathrattle-position-coordinates",
+                ("x", Math.Round(coordinates.X)),
+                ("y", Math.Round(coordinates.Y)));
+        }
+
+        position = FormattedMessage.RemoveMarkupOrThrow(position);
         var message = Loc.GetString(messageId, ("ai", aiName), ("position", position));
         var sender = Loc.GetString("station-ai-deathrattle-sender");
 

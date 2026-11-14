@@ -79,6 +79,8 @@ station-ai-warp-section-crew = Crew
 station-ai-warp-section-locations = Locations
 station-ai-warp-radial-tooltip = Warp
 
-station-ai-deathrattle-sender = AI SYSTEM ALERT
+station-ai-deathrattle-sender = AI System
 station-ai-deathrattle-connection-lost = Connection to Station AI {$ai} was lost {$position}.
 station-ai-deathrattle-shutdown = Station AI {$ai} has shut down {$position}.
+station-ai-deathrattle-download = Station AI {$ai} was downloaded {$position}.
+station-ai-deathrattle-position-coordinates = at coordinates X {$x}, Y {$y}
