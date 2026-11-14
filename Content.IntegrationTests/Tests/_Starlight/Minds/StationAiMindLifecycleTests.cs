@@ -70,15 +70,18 @@ public sealed partial class MindTests
     {
         var (pair, holder, _, mindId, station) = await SetupAiHolder();
         var entMan = pair.Server.ResolveDependency<IServerEntityManager>();
+        var announcements = entMan.System<StationAiAnnouncementTestSystem>();
 
         await pair.Server.WaitAssertion(() =>
         {
+            announcements.Clear();
             var ghost = entMan.Spawn(GameTicker.ObserverPrototypeName, MapCoordinates.Nullspace);
             entMan.System<MindSystem>().TransferTo(mindId, ghost);
         });
         await pair.RunTicksSync(5);
 
         Assert.That(entMan.GetComponent<StationAiHolderComponent>(holder).Slot.Item, Is.Null);
+        Assert.That(announcements.LastMessage, Is.Empty);
         AssertStationAiJobSlots(entMan, station, 1);
     }
 
@@ -934,6 +937,7 @@ public sealed partial class MindTests
             var stationJobs = entMan.System<StationJobsSystem>();
             var containers = entMan.System<SharedContainerSystem>();
             var userId = entMan.GetComponent<MindComponent>(mindId).UserId!.Value;
+            var mapCoordinates = pair.TestMap!.MapCoords;
             Assert.That(stationJobs.TryAssignJob(station, "StationAi", userId), Is.True);
 
             ai = entMan.SpawnEntity("StationAiBrainConstructed", MapCoordinates.Nullspace);
@@ -943,8 +947,8 @@ public sealed partial class MindTests
             entMan.System<MindSystem>().TransferTo(mindId, ai);
             AssertStationAiJobSlots(entMan, station, 0);
 
-            var user = entMan.Spawn("MobHuman", MapCoordinates.Nullspace);
-            holder = entMan.SpawnEntity("Intellicard", MapCoordinates.Nullspace);
+            var user = entMan.Spawn("MobHuman", mapCoordinates);
+            holder = entMan.Spawn("Intellicard", mapCoordinates);
             entMan.GetComponent<IntellicardComponent>(holder).DownloadTime = 0;
             Assert.That(entMan.System<SharedHandsSystem>().TryPickupAnyHand(user, holder), Is.True);
 
@@ -973,6 +977,7 @@ public sealed partial class MindTests
     {
         var pair = await SetupPair();
         var entMan = pair.Server.ResolveDependency<IServerEntityManager>();
+        var testMap = pair.TestMap ?? await pair.CreateTestMap();
         EntityUid station = default;
         var cores = new EntityUid[coreCount];
 
@@ -987,7 +992,7 @@ public sealed partial class MindTests
         {
             for (var i = 0; i < cores.Length; i++)
             {
-                cores[i] = entMan.SpawnEntity("PlayerStationAi", MapCoordinates.Nullspace);
+                cores[i] = entMan.Spawn("PlayerStationAi", testMap.MapCoords);
                 var tracker = entMan.AddComponent<StationTrackerComponent>(cores[i]);
                 entMan.System<StationSystem>().SetStation((cores[i], tracker), station);
             }

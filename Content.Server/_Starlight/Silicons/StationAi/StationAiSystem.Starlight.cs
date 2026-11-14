@@ -109,8 +109,9 @@ public sealed partial class StationAiSystem
             return;
         }
 
-        if (!TryComp<MobStateComponent>(removedMindEntity, out var mobState)
-            || mobState.CurrentState == MobState.Alive)
+        if (wasInAiCore
+            && (!TryComp<MobStateComponent>(removedMindEntity, out var mobState)
+                || mobState.CurrentState == MobState.Alive))
             AnnounceStationAiStatus(removedMindEntity, holder, "station-ai-deathrattle-connection-lost");
     }
 
