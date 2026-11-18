@@ -11,7 +11,7 @@ public sealed partial class EmergencyShuttleSystem
 {
     private EntityUid? _evacuationPlanetMap = null;
     private EntityCoordinates? _evacuationLandingZone = null;
-    private const float PodSpreadRadius = 25f;
+    private const float PodSpreadRadius = 15f; // Starlight
 
     private void SetupEvacuationPlanet()
     {

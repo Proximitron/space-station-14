@@ -15,6 +15,14 @@
   objectType: Item
 
 - type: construction
+  id: SpearStone
+  graph: SpearStone
+  startNode: start
+  targetNode: spear
+  category: construction-category-tools
+  objectType: Item
+
+- type: construction
   id: WoodenCup
   graph: WoodenCup
   startNode: start

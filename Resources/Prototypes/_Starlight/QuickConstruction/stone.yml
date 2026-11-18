@@ -1,0 +1,4 @@
+- type: quickConstructionCategory
+  id: Stone
+  constructionEntries:
+    - Biface

@@ -1,5 +1,5 @@
 - type: entity
-  parent: MaterialBase
+  parent: [MaterialBase, BaseQuickConstructionMaterial]
   id: MaterialStone
   name: stone
   description: A piece of stone chipped from rock.
@@ -7,6 +7,8 @@
   components:
   - type: Stack
     stackType: Stone
+  - type: QuickConstructable
+    category: Stone
   - type: Sprite
     sprite: _Starlight/Objects/Materials/stone.rsi
     state: stone
@@ -26,9 +28,6 @@
   components:
   - type: Stack
     count: 1
-  - type: Construction
-    graph: BifaceConstruct
-    node: start
 
 - type: entity
   parent: MaterialBase
