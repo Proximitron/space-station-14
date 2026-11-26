@@ -6,6 +6,7 @@ using Content.Shared._Starlight.Computers.RemoteControl;
 using Content.Shared._DEN.QuickConstruction.Events;
 using Content.Shared.Atmos.Components;
 using Content.Shared.Actions.Components;
+using Content.Shared.Silicons.Borgs.Components;
 using Content.Shared.Silicons.Laws.Components;
 using JetBrains.Annotations;
 using Robust.Client.Graphics;
@@ -186,10 +187,19 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         => SendPredictedMessage(new RemoteControlReleasePulledObjectMessage());
 
     private void RemoteActionPressed(EntityUid action)
-        => SendMessage(new RemoteControlActionMessage { Action = EntMan.GetNetEntity(action) });
+    {
+        var message = new RemoteControlActionMessage { Action = EntMan.GetNetEntity(action) };
+        if (_remoteEntity is { } remoteEntity
+            && EntMan.HasComponent<BorgSwitchableTypeComponent>(remoteEntity)
+            && EntMan.TryGetComponent<InstantActionComponent>(action, out var instantAction)
+            && instantAction.Event is BorgToggleSelectTypeEvent)
+            SendMessage(message);
+        else
+            SendPredictedMessage(message);
+    }
 
     private void RemoteTargetActionPressed(EntityUid action, EntityUid? target, NetCoordinates coordinates)
-        => SendMessage(new RemoteControlTargetActionMessage
+        => SendPredictedMessage(new RemoteControlTargetActionMessage
         {
             Action = EntMan.GetNetEntity(action),
             Target = target is { } targetEntity ? EntMan.GetNetEntity(targetEntity) : null,
@@ -301,7 +311,13 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         });
 
     private void RemoteInventoryPressed(string slot, RemoteControlInventoryAction action)
-        => SendMessage(new RemoteControlInventoryMessage { Slot = slot, Action = action });
+    {
+        var message = new RemoteControlInventoryMessage { Slot = slot, Action = action };
+        if (action == RemoteControlInventoryAction.UseSlot)
+            SendPredictedMessage(message);
+        else
+            SendMessage(message);
+    }
 
     private void ClearRemoteQuickConstruction()
     {

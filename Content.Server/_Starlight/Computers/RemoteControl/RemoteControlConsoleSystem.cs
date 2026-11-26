@@ -148,9 +148,6 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                 subs.Event<RemoteControlDragDropMessage>(OnRemoteDragDrop);
                 subs.Event<RemoteControlBuildConstructionMessage>(OnRemoteBuildConstruction);
                 subs.Event<RemoteControlBuildItemConstructionMessage>(OnRemoteBuildItemConstruction);
-                subs.Event<RemoteControlActionMessage>(OnRemoteAction);
-                subs.Event<RemoteControlTargetActionMessage>(OnRemoteTargetAction);
-                subs.Event<RemoteControlInventoryMessage>(OnRemoteInventory);
                 subs.Event<RemoteControlOpenSettingsMessage>(OnOpenSettings);
             });
         Subs.BuiEvents<RemoteControlConsoleComponent>(RemoteControlSettingsUIKey.Key,
@@ -994,50 +991,25 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
         }
     }
 
-    private void OnRemoteAction(EntityUid uid, RemoteControlConsoleComponent component, RemoteControlActionMessage args)
+    protected override bool TryHandleRemoteBorgTypeAction(
+        EntityUid uid,
+        RemoteControlConsoleComponent component,
+        EntityUid remoteEntity,
+        EntityUid actor)
     {
-        if (!TryGetActionableControlledEntity((uid, component), args.Actor, out var remoteEntity))
-            return;
+        if (!_playerManager.TryGetSessionByEntity(actor, out var controllerSession)
+            || controllerSession == null)
+            return false;
 
-        var action = GetEntity(args.Action);
-        var availableActions = GetRemoteActionEntities(remoteEntity);
-        if (!availableActions.Contains(action))
-            return;
-
-        var isBorgTypeAction = TryComp<InstantActionComponent>(action, out var instantAction)
-                                && instantAction.Event is BorgToggleSelectTypeEvent;
-        var hasBorgSwitchableType = TryComp<BorgSwitchableTypeComponent>(remoteEntity, out _);
-        var hasControllerSession = _playerManager.TryGetSessionByEntity(args.Actor, out var controllerSession);
-
-        if (isBorgTypeAction && hasBorgSwitchableType && hasControllerSession && controllerSession != null)
-        {
-            TrackRemoteUiRangeOverrideActor(
-                remoteEntity,
-                BorgSwitchableTypeUiKey.SelectBorgType,
-                args.Actor,
-                args.Actor,
-                remoteEntity);
-            _ui.OpenUi((remoteEntity, null), BorgSwitchableTypeUiKey.SelectBorgType, controllerSession!);
-            RefreshRemoteState(uid, component, remoteEntity);
-            return;
-        }
-
-        _actions.TryPerformAction(remoteEntity, action);
-    }
-
-    private void OnRemoteTargetAction(EntityUid uid, RemoteControlConsoleComponent component,
-        RemoteControlTargetActionMessage args)
-    {
-        if (!TryGetActionableControlledEntity((uid, component), args.Actor, out var remoteEntity))
-            return;
-
-        var action = GetEntity(args.Action);
-        if (!GetRemoteActionEntities(remoteEntity).Contains(action)
-            || !HasComp<TargetActionComponent>(action))
-            return;
-
-        var target = args.Target is { } targetNet ? GetEntity(targetNet) : (EntityUid?)null;
-        _actions.TryPerformAction(remoteEntity, action, target, args.Coordinates);
+        TrackRemoteUiRangeOverrideActor(
+            remoteEntity,
+            BorgSwitchableTypeUiKey.SelectBorgType,
+            actor,
+            actor,
+            remoteEntity);
+        _ui.OpenUi((remoteEntity, null), BorgSwitchableTypeUiKey.SelectBorgType, controllerSession);
+        RefreshRemoteState(uid, component, remoteEntity);
+        return true;
     }
 
     private void OnRemoteCloseQuickConstruction(EntityUid uid, RemoteControlConsoleComponent component,
@@ -1113,63 +1085,28 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
             RefreshRemoteState(uid, component, remoteEntity);
     }
 
-    private void OnRemoteInventory(EntityUid uid, RemoteControlConsoleComponent component,
-        RemoteControlInventoryMessage args)
+    protected override void OpenRemoteStorage(
+        EntityUid uid,
+        RemoteControlConsoleComponent component,
+        EntityUid remoteEntity,
+        EntityUid actor,
+        string slot)
     {
-        if (!TryGetActionableControlledEntity((uid, component), args.Actor, out var remoteEntity)
-            || !TryComp<InventoryComponent>(remoteEntity, out var inventory))
+        if (!TryComp<InventoryComponent>(remoteEntity, out var inventory))
             return;
 
-        switch (args.Action)
+        if (_inventory.TryGetSlotEntity(remoteEntity, slot, out var item, inventory)
+            && item is { } storageItem
+            && TryComp<StorageComponent>(storageItem, out var storage))
         {
-            case RemoteControlInventoryAction.UseSlot:
-                UseRemoteSlot(remoteEntity, args.Slot, inventory);
-                break;
-            case RemoteControlInventoryAction.OpenStorage:
-                if (_inventory.TryGetSlotEntity(remoteEntity, args.Slot, out var item, inventory)
-                    && item is { } storageItem
-                    && TryComp<StorageComponent>(storageItem, out var storage))
-                {
-                    var wasOpen = _ui.IsUiOpen(storageItem, StorageComponent.StorageUiKey.Key, remoteEntity);
-                    _storage.OpenStorageUI(storageItem, remoteEntity, storage, false);
+            var wasOpen = _ui.IsUiOpen(storageItem, StorageComponent.StorageUiKey.Key, remoteEntity);
+            _storage.OpenStorageUI(storageItem, remoteEntity, storage, false);
 
-                    if (!wasOpen && _ui.IsUiOpen(storageItem, StorageComponent.StorageUiKey.Key, remoteEntity))
-                        TrackRemoteStorageUi(uid, storageItem, args.Actor, remoteEntity);
-                }
-
-                break;
+            if (!wasOpen && _ui.IsUiOpen(storageItem, StorageComponent.StorageUiKey.Key, remoteEntity))
+                TrackRemoteStorageUi(uid, storageItem, actor, remoteEntity);
         }
 
         RefreshRemoteState(uid, component, remoteEntity);
-    }
-
-    private void UseRemoteSlot(EntityUid remoteEntity, string slot, InventoryComponent inventory)
-    {
-        if (!TryComp<HandsComponent>(remoteEntity, out var hands))
-            return;
-
-        var held = _hands.GetActiveItem((remoteEntity, hands));
-        _inventory.TryGetSlotEntity(remoteEntity, slot, out var item, inventory);
-
-        if (held is { } heldItem && item is { } slotItem)
-        {
-            _interaction.InteractUsing(remoteEntity, heldItem, slotItem, Transform(slotItem).Coordinates);
-            return;
-        }
-
-        if (item is { } equipped)
-        {
-            if (!_inventory.TryUnequip(remoteEntity, slot, out var removed, predicted: true,
-                    inventory: inventory, checkDoafter: true, triggerHandContact: true))
-                return;
-
-            _hands.PickupOrDrop(remoteEntity, removed.Value);
-            return;
-        }
-
-        if (held is { } heldEntity)
-            _inventory.TryEquip(remoteEntity, heldEntity, slot, predicted: true, inventory: inventory,
-                checkDoafter: true, triggerHandContact: true);
     }
 
     public override bool TryGetControllerForRemoteEntity(EntityUid remoteEntity, out EntityUid controller) =>
@@ -2299,30 +2236,6 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
         var index = 0;
         foreach (var action in actionEntities.OrderBy(action => action.Id))
             result[index++] = GetNetEntity(action);
-
-        return result;
-    }
-
-    private HashSet<EntityUid> GetRemoteActionEntities(EntityUid remoteEntity)
-    {
-        var result = new HashSet<EntityUid>();
-        if (TryComp<ActionsComponent>(remoteEntity, out var actions))
-            foreach (var action in _actions.GetActions(remoteEntity, actions))
-                result.Add(action.Owner);
-
-        if (TryComp<BorgSwitchableTypeComponent>(remoteEntity, out var switchable)
-            && switchable.SelectTypeAction is { } selectTypeAction
-            && Exists(selectTypeAction))
-            result.Add(selectTypeAction);
-
-        if (!TryComp<BorgChassisComponent>(remoteEntity, out var chassis))
-            return result;
-
-        foreach (var module in chassis.ModuleContainer.ContainedEntities)
-            if (TryComp<SelectableBorgModuleComponent>(module, out var selectable)
-                && selectable.ModuleSwapActionEntity is { } action
-                && Exists(action))
-                result.Add(action);
 
         return result;
     }
