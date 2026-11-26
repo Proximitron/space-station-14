@@ -10,12 +10,14 @@ using Robust.Shared.Containers;
 
 namespace Content.Shared._Starlight.Computers.RemoteControl;
 
-public sealed partial class SharedRemoteControlConsoleSystem : EntitySystem
+public abstract partial class SharedRemoteControlConsoleSystem : EntitySystem
 {
     [Dependency] private SharedContainerSystem _containers = default!;
     [Dependency] private SharedInteractionSystem _interaction = default!;
     [Dependency] private ActionBlockerSystem _actionBlocker = default!;
     [Dependency] private SharedUserInterfaceSystem _ui = default!;
+
+    protected SharedUserInterfaceSystem SharedUi => _ui;
 
     /// <summary>
     /// Gets the remote entity controlled by an actor.
@@ -42,7 +44,7 @@ public sealed partial class SharedRemoteControlConsoleSystem : EntitySystem
         return false;
     }
 
-    public bool TryGetControllerForRemoteEntity(EntityUid remoteEntity, out EntityUid controller)
+    public virtual bool TryGetControllerForRemoteEntity(EntityUid remoteEntity, out EntityUid controller)
     {
         var query = EntityQueryEnumerator<RemoteControlConsoleComponent>();
         while (query.MoveNext(out var consoleUid, out var console))
@@ -153,15 +155,18 @@ public sealed partial class SharedRemoteControlConsoleSystem : EntitySystem
         if (component.RemoteBrain is not { } brain)
             return false;
 
-        if (TryComp<OrganComponent>(brain, out var organ) && organ.Body is { } organBody)
+        if (TryComp<OrganComponent>(brain, out var organ)
+            && organ.Body is { } organBody
+            && TryComp<RemoteControlInterfaceTargetComponent>(organBody, out var organTarget)
+            && organTarget.RemoteBrain == brain)
         {
             body = organBody;
             return true;
         }
 
         if (_containers.TryGetContainingContainer(brain, out var container)
-            && container.ID == "borg_brain"
-            && TryComp<BorgChassisComponent>(container.Owner, out _)
+            && TryComp<RemoteControlInterfaceTargetComponent>(container.Owner, out var interfaceTarget)
+            && interfaceTarget.RemoteBrain == brain
             && (body = container.Owner) != default)
             return true;
 

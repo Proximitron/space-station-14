@@ -50,7 +50,6 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         _window.RemoteToggleKnockdownPressed += RemoteToggleKnockdown;
         _window.RemoteReleasePulledObjectPressed += RemoteReleasePulledObject;
         _window.RemoteInteractionPressed += RemoteInteractionPressed;
-        _window.RemoteAttackHoldChanged += RemoteAttackHoldChanged;
         _window.RemoteDragDropPressed += RemoteDragDropPressed;
         _window.RemoteActionPressed += RemoteActionPressed;
         _window.RemoteTargetActionPressed += RemoteTargetActionPressed;
@@ -146,6 +145,9 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
     {
         base.Update();
         RefreshActions();
+
+        if (_remoteEntity is { } remoteEntity && _window is { Disposed: false } window)
+            window.RefreshPredictedRemoteHands(remoteEntity);
     }
 
     private void RefreshActions()
@@ -178,10 +180,10 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
     private void ToggleControl() => SendMessage(new RemoteControlToggleMessage());
 
     private void RemoteToggleKnockdown()
-        => SendMessage(new RemoteControlToggleKnockdownMessage());
+        => SendPredictedMessage(new RemoteControlToggleKnockdownMessage());
 
     private void RemoteReleasePulledObject()
-        => SendMessage(new RemoteControlReleasePulledObjectMessage());
+        => SendPredictedMessage(new RemoteControlReleasePulledObjectMessage());
 
     private void RemoteActionPressed(EntityUid action)
         => SendMessage(new RemoteControlActionMessage { Action = EntMan.GetNetEntity(action) });
@@ -210,9 +212,10 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         RemoteControlInteractionAction action, AtmosPipeLayer? pipeLayer)
     {
         var remotePlacement = EntMan.System<RemoteConstructionPlacementSystem>();
+        var remotePlacementActive = remotePlacement.IsActive;
         if (!altInteract
             && action == RemoteControlInteractionAction.Interact
-            && remotePlacement.IsActive
+            && remotePlacementActive
             && !remotePlacement.TryCommit(target))
             return;
 
@@ -233,7 +236,17 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             return;
         }
 
-        SendMessage(new RemoteControlInteractionMessage
+        var predictInteraction = action switch
+        {
+            RemoteControlInteractionAction.Interact =>
+                !remotePlacementActive && pipeLayer is null && (!activateInWorld || target is not null),
+            RemoteControlInteractionAction.TryPull => target is not null,
+            RemoteControlInteractionAction.Drop or RemoteControlInteractionAction.Throw
+                or RemoteControlInteractionAction.Shoot => true,
+            _ => false
+        };
+
+        var message = new RemoteControlInteractionMessage
         {
             Coordinates = coordinates,
             Target = target is { } entity ? EntMan.GetNetEntity(entity) : null,
@@ -241,37 +254,44 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             ActivateInWorld = activateInWorld,
             Action = action,
             PipeLayer = pipeLayer,
-        });
-    }
+        };
 
-    private void RemoteAttackHoldChanged(bool held, RemoteControlAttackHoldType type, bool altInteract,
-        NetCoordinates? coordinates, EntityUid? target)
-        => SendMessage(new RemoteControlAttackHoldMessage
-        {
-            Held = held,
-            Type = type,
-            AltInteract = altInteract,
-            HasCoordinates = coordinates is not null,
-            Coordinates = coordinates.GetValueOrDefault(),
-            Target = target is { } entity ? EntMan.GetNetEntity(entity) : null,
-        });
+        if (predictInteraction)
+            SendPredictedMessage(message);
+        else
+            SendMessage(message);
+    }
 
     private void OnRemoteMenuInteraction(EntityUid target, bool altInteract, RemoteControlInteractionAction action)
     {
         if (_remoteEntity is null)
             return;
 
-        SendMessage(new RemoteControlInteractionMessage
+        var message = new RemoteControlInteractionMessage
         {
             Coordinates = EntMan.GetNetCoordinates(EntMan.GetComponent<TransformComponent>(target).Coordinates),
             Target = EntMan.GetNetEntity(target),
             AltInteract = altInteract,
             Action = action,
-        });
+        };
+
+        var predictInteraction = action switch
+        {
+            RemoteControlInteractionAction.Interact => true,
+            RemoteControlInteractionAction.TryPull => true,
+            RemoteControlInteractionAction.Drop or RemoteControlInteractionAction.Throw
+                or RemoteControlInteractionAction.Shoot => true,
+            _ => false
+        };
+
+        if (predictInteraction)
+            SendPredictedMessage(message);
+        else
+            SendMessage(message);
     }
 
     private void RemoteHandPressed(string hand, RemoteControlHandAction action)
-        => SendMessage(new RemoteControlHandMessage { Hand = hand, Action = action });
+        => SendPredictedMessage(new RemoteControlHandMessage { Hand = hand, Action = action });
 
     private void RemoteDragDropPressed(EntityUid dragged, EntityUid target)
         => SendMessage(new RemoteControlDragDropMessage
@@ -323,7 +343,6 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
                 window.RemoteToggleKnockdownPressed -= RemoteToggleKnockdown;
                 window.RemoteReleasePulledObjectPressed -= RemoteReleasePulledObject;
                 window.RemoteInteractionPressed -= RemoteInteractionPressed;
-                window.RemoteAttackHoldChanged -= RemoteAttackHoldChanged;
                 window.RemoteDragDropPressed -= RemoteDragDropPressed;
                 window.RemoteActionPressed -= RemoteActionPressed;
                 window.RemoteHandPressed -= RemoteHandPressed;

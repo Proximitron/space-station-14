@@ -4,6 +4,7 @@ using System.Numerics;
 using Content.IntegrationTests.Tests.Movement;
 using Content.Client._Starlight.Computers.RemoteControl;
 using Content.Server._Starlight.Computers.RemoteControl;
+using RemoteControlConsoleSystem = Content.Server._Starlight.Computers.RemoteControl.RemoteControlConsoleSystem;
 using Content.Server.Power.EntitySystems;
 using Content.Server.Silicons.Borgs;
 using Content.Shared._Starlight.Computers.RemoteControl;
@@ -341,13 +342,17 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
     {
         EntityUid controlledBorg = default;
         EntityUid pulledEntity = default;
+        NetEntity controlledBorgNet = default;
+        NetEntity pulledEntityNet = default;
         EntityUid consoleUid = default;
 
         await Server.WaitAssertion(() =>
         {
             var coordinates = SEntMan.GetCoordinates(PlayerCoords);
             controlledBorg = SpawnBorg(coordinates.Offset(new Vector2(4f, 0f)), out _);
+            controlledBorgNet = SEntMan.GetNetEntity(controlledBorg);
             pulledEntity = SEntMan.SpawnEntity("MobHuman", coordinates.Offset(new Vector2(5f, 0f)));
+            pulledEntityNet = SEntMan.GetNetEntity(pulledEntity);
 
             var mindSystem = Server.System<SharedMindSystem>();
             var mindId = mindSystem.CreateMind(ServerSession.UserId);
@@ -381,9 +386,25 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
 
                 Assert.That(SEntMan.GetComponent<PullerComponent>(controlledBorg).Pulling, Is.EqualTo(pulledEntity),
                     "TryPull should make the remote borg pull the selected object.");
+                Assert.That(SEntMan.HasComponent<MovementRelayTargetComponent>(controlledBorg), Is.True,
+                    "The server should keep the remotely controlled borg as a movement relay target.");
             });
 
-            await RunTicks(1);
+            await RunTicks(5);
+            await Client.WaitAssertion(() =>
+            {
+                var clientControlledBorg = CEntMan.GetEntity(controlledBorgNet);
+                var clientPulledEntity = CEntMan.GetEntity(pulledEntityNet);
+
+                Assert.That(CEntMan.HasComponent<MovementRelayTargetComponent>(clientControlledBorg), Is.True,
+                    "The remotely controlled borg should be a movement relay target.");
+                Assert.That(CEntMan.GetComponent<PullableComponent>(clientPulledEntity).Puller,
+                    Is.EqualTo(clientControlledBorg),
+                    "The pullable should identify the remote-controlled borg as its puller.");
+                Assert.That(CEntMan.GetComponent<PhysicsComponent>(clientPulledEntity).Predict, Is.True,
+                    "The client should predict an entity pulled by its remotely controlled relay target.");
+            });
+
             await Server.WaitAssertion(() =>
             {
                 var remoteCoordinates = SEntMan.GetComponent<TransformComponent>(controlledBorg).Coordinates;

@@ -49,14 +49,6 @@ public enum RemoteControlInteractionAction : byte
 }
 
 [Serializable, NetSerializable]
-public enum RemoteControlAttackHoldType : byte
-{
-    Shoot,
-    MeleeLight,
-    MeleeHeavy,
-}
-
-[Serializable, NetSerializable]
 public sealed class RemoteControlInteractionMessage : BoundUserInterfaceMessage
 {
     public required NetCoordinates Coordinates { get; init; }
@@ -65,17 +57,6 @@ public sealed class RemoteControlInteractionMessage : BoundUserInterfaceMessage
     public bool ActivateInWorld { get; init; }
     public RemoteControlInteractionAction Action { get; init; }
     public AtmosPipeLayer? PipeLayer { get; init; }
-}
-
-[Serializable, NetSerializable]
-public sealed class RemoteControlAttackHoldMessage : BoundUserInterfaceMessage
-{
-    public bool Held { get; init; }
-    public bool AltInteract { get; init; }
-    public RemoteControlAttackHoldType Type { get; init; }
-    public bool HasCoordinates { get; init; }
-    public NetCoordinates Coordinates { get; init; }
-    public NetEntity? Target { get; init; }
 }
 
 [Serializable, NetSerializable]
