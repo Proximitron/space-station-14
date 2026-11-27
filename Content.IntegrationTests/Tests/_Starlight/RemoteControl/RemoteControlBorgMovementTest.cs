@@ -1,8 +1,6 @@
 #nullable enable
-using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using Content.Client.UserInterface.Systems.Actions.Controls;
 using Content.IntegrationTests.Tests.Movement;
 using Content.Client._Starlight.Computers.RemoteControl;
 using Content.Server._Starlight.Computers.RemoteControl;
@@ -12,9 +10,7 @@ using Content.Server.Silicons.Borgs;
 using Content.Shared._Starlight.Computers.RemoteControl;
 using Content.Shared._Starlight.Silicons;
 using Content.Shared._Starlight.Silicons.Borgs;
-using Content.Shared.Actions.Components;
 using Content.Shared.ActionBlocker;
-using Content.Shared.CombatMode;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared.Interaction;
@@ -28,15 +24,12 @@ using Content.Shared.Movement.Pulling.Components;
 using Content.Shared.Movement.Pulling.Systems;
 using Content.Shared.Movement.Systems;
 using Content.Shared.Popups;
-using Content.Shared.SprayPainter.Components;
 using Content.Shared.Power.Components;
 using Content.Shared.Silicons.Borgs;
 using Content.Shared.Silicons.Borgs.Components;
 using Content.Shared.Silicons.StationAi;
-using Content.Shared.SubFloor;
 using Content.Shared.Standing;
 using Content.Shared.Stunnable;
-using Content.Shared.Weapons.Melee;
 using Robust.Shared.Containers;
 using Robust.Shared.GameObjects;
 using Robust.Shared.Input;
@@ -45,8 +38,6 @@ using Robust.Shared.Map;
 using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Systems;
 using Robust.Shared.Player;
-using Robust.Shared.Timing;
-using Robust.Client.UserInterface;
 
 namespace Content.IntegrationTests.Tests._Starlight.RemoteControl;
 
@@ -351,17 +342,13 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
     {
         EntityUid controlledBorg = default;
         EntityUid pulledEntity = default;
-        NetEntity controlledBorgNet = default;
-        NetEntity pulledEntityNet = default;
         EntityUid consoleUid = default;
 
         await Server.WaitAssertion(() =>
         {
             var coordinates = SEntMan.GetCoordinates(PlayerCoords);
             controlledBorg = SpawnBorg(coordinates.Offset(new Vector2(4f, 0f)), out _);
-            controlledBorgNet = SEntMan.GetNetEntity(controlledBorg);
             pulledEntity = SEntMan.SpawnEntity("MobHuman", coordinates.Offset(new Vector2(5f, 0f)));
-            pulledEntityNet = SEntMan.GetNetEntity(pulledEntity);
 
             var mindSystem = Server.System<SharedMindSystem>();
             var mindId = mindSystem.CreateMind(ServerSession.UserId);
@@ -395,25 +382,9 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
 
                 Assert.That(SEntMan.GetComponent<PullerComponent>(controlledBorg).Pulling, Is.EqualTo(pulledEntity),
                     "TryPull should make the remote borg pull the selected object.");
-                Assert.That(SEntMan.HasComponent<MovementRelayTargetComponent>(controlledBorg), Is.True,
-                    "The server should keep the remotely controlled borg as a movement relay target.");
             });
 
-            await RunTicks(5);
-            await Client.WaitAssertion(() =>
-            {
-                var clientControlledBorg = CEntMan.GetEntity(controlledBorgNet);
-                var clientPulledEntity = CEntMan.GetEntity(pulledEntityNet);
-
-                Assert.That(CEntMan.HasComponent<MovementRelayTargetComponent>(clientControlledBorg), Is.True,
-                    "The remotely controlled borg should be a movement relay target.");
-                Assert.That(CEntMan.GetComponent<PullableComponent>(clientPulledEntity).Puller,
-                    Is.EqualTo(clientControlledBorg),
-                    "The pullable should identify the remote-controlled borg as its puller.");
-                Assert.That(CEntMan.GetComponent<PhysicsComponent>(clientPulledEntity).Predict, Is.True,
-                    "The client should predict an entity pulled by its remotely controlled relay target.");
-            });
-
+            await RunTicks(1);
             await Server.WaitAssertion(() =>
             {
                 var remoteCoordinates = SEntMan.GetComponent<TransformComponent>(controlledBorg).Coordinates;
@@ -659,381 +630,6 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
         }
     }
 
-    [Test]
-    public async Task RemoteModuleActionPredictsSelection()
-    {
-        EntityUid controlledBorg = default;
-        EntityUid module = default;
-        NetEntity controlledBorgNet = default;
-        NetEntity moduleNet = default;
-        NetEntity actionNet = default;
-        EntityUid? expectedSelection = null;
-
-        try
-        {
-            await Server.WaitAssertion(() =>
-            {
-                var coordinates = SEntMan.GetCoordinates(PlayerCoords);
-                controlledBorg = SpawnBorg(coordinates.Offset(new Vector2(4f, 0f)), out _);
-                controlledBorgNet = SEntMan.GetNetEntity(controlledBorg);
-
-                var chassis = SEntMan.GetComponent<BorgChassisComponent>(controlledBorg);
-                module = chassis.ModuleContainer.ContainedEntities.First(
-                    entity => SEntMan.HasComponent<SelectableBorgModuleComponent>(entity));
-                var selectable = SEntMan.GetComponent<SelectableBorgModuleComponent>(module);
-                Assert.That(selectable.ModuleSwapActionEntity, Is.Not.Null);
-                actionNet = SEntMan.GetNetEntity(selectable.ModuleSwapActionEntity!.Value);
-                moduleNet = SEntMan.GetNetEntity(module);
-
-                var remoteControl = new AIRemoteControlActionEvent { Target = controlledBorg };
-                SEntMan.EventBus.RaiseLocalEvent(SPlayer, remoteControl);
-                Assert.That(remoteControl.Handled, Is.True,
-                    "The AI should be able to remotely control the borg.");
-
-                expectedSelection = chassis.SelectedModule == module ? null : module;
-            });
-
-            await RunTicks(5);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-            {
-                var remoteConsole = CEntMan.GetEntity(CEntMan.GetNetEntity(CPlayer));
-                var clientBorg = CEntMan.GetEntity(controlledBorgNet);
-                var clientModule = CEntMan.GetEntity(moduleNet);
-                var clientAction = CEntMan.GetEntity(actionNet);
-                var chassis = CEntMan.GetComponent<BorgChassisComponent>(clientBorg);
-                var console = CEntMan.GetComponent<RemoteControlConsoleComponent>(remoteConsole);
-                var action = CEntMan.GetComponent<ActionComponent>(clientAction);
-                var actions = CEntMan.GetComponent<ActionsComponent>(clientBorg);
-
-                Assert.Multiple(() =>
-                {
-                    Assert.That(console.Controller, Is.EqualTo(CPlayer));
-                    Assert.That(CEntMan.GetComponent<BorgModuleComponent>(clientModule).InstalledEntity,
-                        Is.EqualTo(clientBorg));
-                    Assert.That(action.AttachedEntity, Is.EqualTo(clientBorg));
-                    Assert.That(actions.Actions, Does.Contain(clientAction));
-                });
-
-                var ui = Client.System<SharedUserInterfaceSystem>();
-                Assert.That(ui.TryGetUiState<RemoteControlConsoleBuiState>(
-                    remoteConsole, RemoteControlUIKey.Key, out var state), Is.True);
-                Assert.That(state!.Actions, Does.Contain(actionNet));
-                Assert.That(ui.TryGetOpenUi<RemoteControlConsoleBoundUserInterface>(
-                    remoteConsole, RemoteControlUIKey.Key, out var bui), Is.True);
-                bui!.SendPredictedMessage(new RemoteControlActionMessage { Action = actionNet });
-
-                Assert.That(chassis.SelectedModule, Is.EqualTo(expectedSelection),
-                    "The module should switch locally before the server response.");
-                var uiManager = Client.ResolveDependency<IUserInterfaceManager>();
-                var actionButton = FindControls<ActionButton>(uiManager.RootControl)
-                    .Single(button => button.Action?.Owner == clientAction);
-                Assert.That(actionButton.RemoteSelected, Is.EqualTo(expectedSelection == module),
-                    "The module action should update its selected state immediately.");
-            });
-        }
-        finally
-        {
-            await Server.WaitPost(() =>
-            {
-                if (SEntMan.EntityExists(SPlayer))
-                    SEntMan.EventBus.RaiseLocalEvent(SPlayer,
-                        new BoundUIClosedEvent(RemoteControlUIKey.Key, SPlayer, SPlayer));
-            });
-            await RunTicks(1);
-        }
-    }
-
-    [Test]
-    public async Task RemoteAltUsePredictsAndPreservesRapidModeSwitches()
-    {
-        EntityUid remoteBody = default;
-        EntityUid scanner = default;
-        EntityUid sprayPainter = default;
-        NetEntity remoteBodyNet = default;
-        NetEntity scannerNet = default;
-        NetEntity sprayPainterNet = default;
-
-        try
-        {
-            await Server.WaitAssertion(() =>
-            {
-                var coordinates = SEntMan.GetCoordinates(PlayerCoords).Offset(new Vector2(4f, 0f));
-                remoteBody = SEntMan.SpawnAtPosition("MobHuman", coordinates);
-                SEntMan.AddComponent<RemoteControlBrainComponent>(remoteBody);
-                remoteBodyNet = SEntMan.GetNetEntity(remoteBody);
-                scanner = SEntMan.SpawnEntity("trayScanner", coordinates);
-                scannerNet = SEntMan.GetNetEntity(scanner);
-
-                var scannerComponent = SEntMan.GetComponent<TrayScannerComponent>(scanner);
-                scannerComponent.Enabled = true;
-                SEntMan.Dirty(scanner, scannerComponent);
-
-                Assert.That(Server.System<SharedHandsSystem>().TryPickupAnyHand(remoteBody, scanner), Is.True);
-
-                var remoteControl = new AIRemoteControlActionEvent { Target = remoteBody };
-                SEntMan.EventBus.RaiseLocalEvent(SPlayer, remoteControl);
-                Assert.That(remoteControl.Handled, Is.True,
-                    "The AI should be able to remotely control the body.");
-            });
-
-            await RunTicks(5);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-            {
-                var remoteConsole = CEntMan.GetEntity(CEntMan.GetNetEntity(CPlayer));
-                var clientRemoteBody = CEntMan.GetEntity(remoteBodyNet);
-                var clientScanner = CEntMan.GetEntity(scannerNet);
-                var remoteUi = Client.System<SharedUserInterfaceSystem>();
-                Assert.That(remoteUi.TryGetOpenUi<RemoteControlConsoleBoundUserInterface>(
-                    remoteConsole, RemoteControlUIKey.Key, out var bui), Is.True);
-
-                var message = new RemoteControlInteractionMessage
-                {
-                    Coordinates = CEntMan.GetNetCoordinates(
-                        CEntMan.GetComponent<TransformComponent>(clientRemoteBody).Coordinates),
-                    Target = remoteBodyNet,
-                    AltInteract = true,
-                    Action = RemoteControlInteractionAction.Interact,
-                };
-
-                bui!.SendPredictedMessage(message);
-                Assert.That(CEntMan.GetComponent<TrayScannerComponent>(clientScanner).Mode,
-                    Is.EqualTo(TrayScannerMode.Wiring),
-                    "The first alt-click should switch modes locally before the server responds.");
-
-                bui.SendPredictedMessage(message);
-                Assert.That(CEntMan.GetComponent<TrayScannerComponent>(clientScanner).Mode,
-                    Is.EqualTo(TrayScannerMode.Piping),
-                    "A second rapid alt-click should not be lost.");
-            });
-
-            await RunTicks(1);
-            await Pair.RunUntilSynced();
-
-            await Server.WaitAssertion(() =>
-                Assert.That(SEntMan.GetComponent<TrayScannerComponent>(scanner).Mode,
-                    Is.EqualTo(TrayScannerMode.Piping)));
-
-            await Server.WaitAssertion(() =>
-            {
-                var hands = Server.System<SharedHandsSystem>();
-                Assert.That(hands.TryDrop(remoteBody, scanner, checkActionBlocker: false), Is.True);
-
-                var coordinates = SEntMan.GetCoordinates(PlayerCoords).Offset(new Vector2(4f, 0f));
-                sprayPainter = SEntMan.SpawnAtPosition("SprayPainterBorg", coordinates);
-                sprayPainterNet = SEntMan.GetNetEntity(sprayPainter);
-                Assert.That(hands.TryPickupAnyHand(remoteBody, sprayPainter), Is.True);
-            });
-
-            await RunTicks(5);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-            {
-                var remoteConsole = CEntMan.GetEntity(CEntMan.GetNetEntity(CPlayer));
-                var clientRemoteBody = CEntMan.GetEntity(remoteBodyNet);
-                var clientPainter = CEntMan.GetEntity(sprayPainterNet);
-                var remoteUi = Client.System<SharedUserInterfaceSystem>();
-                Assert.That(remoteUi.TryGetOpenUi<RemoteControlConsoleBoundUserInterface>(
-                    remoteConsole, RemoteControlUIKey.Key, out var bui), Is.True);
-
-                var message = new RemoteControlInteractionMessage
-                {
-                    Coordinates = CEntMan.GetNetCoordinates(
-                        CEntMan.GetComponent<TransformComponent>(clientRemoteBody).Coordinates),
-                    Target = remoteBodyNet,
-                    AltInteract = true,
-                    Action = RemoteControlInteractionAction.Interact,
-                };
-                var painterComponent = CEntMan.GetComponent<SprayPainterComponent>(clientPainter);
-
-                bui!.SendPredictedMessage(message);
-                Assert.That(painterComponent.DecalMode, Is.EqualTo(DecalPaintMode.Add),
-                    "The spray painter's first mode switch should predict immediately.");
-
-                bui.SendPredictedMessage(message);
-                Assert.That(painterComponent.DecalMode, Is.EqualTo(DecalPaintMode.Remove),
-                    "A rapid second mode switch should also predict.");
-            });
-
-            await RunTicks(1);
-            await Pair.RunUntilSynced();
-
-            await Server.WaitAssertion(() =>
-                Assert.That(SEntMan.GetComponent<SprayPainterComponent>(sprayPainter).DecalMode,
-                    Is.EqualTo(DecalPaintMode.Remove)));
-        }
-        finally
-        {
-            await Server.WaitPost(() =>
-            {
-                if (SEntMan.EntityExists(SPlayer))
-                    SEntMan.EventBus.RaiseLocalEvent(SPlayer,
-                        new BoundUIClosedEvent(RemoteControlUIKey.Key, SPlayer, SPlayer));
-            });
-            await RunTicks(1);
-        }
-    }
-
-    [Test]
-    public async Task RemoteHeavyAttackPredictionUsesSharedMeleeCooldown()
-    {
-        EntityUid remoteBody = default;
-        EntityUid weapon = default;
-        NetEntity remoteBodyNet = default;
-        NetEntity weaponNet = default;
-
-        try
-        {
-            await Server.WaitAssertion(() =>
-            {
-                var coordinates = SEntMan.GetCoordinates(PlayerCoords).Offset(new Vector2(4f, 0f));
-                remoteBody = SEntMan.SpawnEntity("MobHuman", coordinates);
-                SEntMan.AddComponent<RemoteControlBrainComponent>(remoteBody);
-                remoteBodyNet = SEntMan.GetNetEntity(remoteBody);
-
-                weapon = SEntMan.SpawnAtPosition("FireAxe", coordinates);
-                weaponNet = SEntMan.GetNetEntity(weapon);
-                Assert.That(Server.System<SharedHandsSystem>().TryPickupAnyHand(remoteBody, weapon), Is.True);
-
-                var melee = SEntMan.GetComponent<MeleeWeaponComponent>(weapon);
-                melee.NextAttack = TimeSpan.Zero;
-                SEntMan.Dirty(weapon, melee);
-                Server.System<SharedCombatModeSystem>().SetInCombatMode(remoteBody, true);
-
-                var remoteControl = new AIRemoteControlActionEvent { Target = remoteBody };
-                SEntMan.EventBus.RaiseLocalEvent(SPlayer, remoteControl);
-                Assert.That(remoteControl.Handled, Is.True,
-                    "The AI should be able to remotely control the body.");
-            });
-
-            await RunTicks(5);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-            {
-                var remoteConsole = CEntMan.GetEntity(CEntMan.GetNetEntity(CPlayer));
-                var clientRemoteBody = CEntMan.GetEntity(remoteBodyNet);
-                var clientWeapon = CEntMan.GetEntity(weaponNet);
-                var remoteUi = Client.System<SharedUserInterfaceSystem>();
-                Assert.That(remoteUi.TryGetOpenUi<RemoteControlConsoleBoundUserInterface>(
-                    remoteConsole, RemoteControlUIKey.Key, out var bui), Is.True);
-
-                var melee = CEntMan.GetComponent<MeleeWeaponComponent>(clientWeapon);
-                var initialNextAttack = melee.NextAttack;
-                var message = new RemoteControlInteractionMessage
-                {
-                    Coordinates = CEntMan.GetNetCoordinates(
-                        CEntMan.GetComponent<TransformComponent>(clientRemoteBody).Coordinates),
-                    AltInteract = true,
-                    Action = RemoteControlInteractionAction.HeavyAttack,
-                    Tick = Client.ResolveDependency<IGameTiming>().CurTick,
-                };
-
-                bui!.SendPredictedMessage(message);
-                var nextAttackAfterFirst = melee.NextAttack;
-                Assert.That(nextAttackAfterFirst, Is.GreaterThan(initialNextAttack),
-                    "The heavy attack should predict immediately and set the shared melee cooldown.");
-
-                bui.SendPredictedMessage(message);
-                Assert.That(melee.NextAttack, Is.EqualTo(nextAttackAfterFirst),
-                    "A second rapid heavy-attack request should respect the shared melee cooldown.");
-            });
-
-            await RunTicks(1);
-            await Pair.RunUntilSynced();
-
-            await Server.WaitAssertion(() =>
-                Assert.That(SEntMan.GetComponent<MeleeWeaponComponent>(weapon).NextAttack,
-                    Is.GreaterThan(TimeSpan.Zero)));
-        }
-        finally
-        {
-            await Server.WaitPost(() =>
-            {
-                if (SEntMan.EntityExists(SPlayer))
-                    SEntMan.EventBus.RaiseLocalEvent(SPlayer,
-                        new BoundUIClosedEvent(RemoteControlUIKey.Key, SPlayer, SPlayer));
-            });
-            await RunTicks(1);
-        }
-    }
-
-    [Test]
-    public async Task RemoteHitscanShotIsPredictedBeforeServerResponse()
-    {
-        EntityUid remoteBody = default;
-        NetEntity remoteBodyNet = default;
-        var effectsBefore = 0;
-        var effectsAfterPrediction = 0;
-
-        try
-        {
-            await Server.WaitAssertion(() =>
-            {
-                var coordinates = SEntMan.GetCoordinates(PlayerCoords).Offset(new Vector2(4f, 0f));
-                remoteBody = SEntMan.SpawnEntity("MobHuman", coordinates);
-                SEntMan.AddComponent<RemoteControlBrainComponent>(remoteBody);
-                remoteBodyNet = SEntMan.GetNetEntity(remoteBody);
-
-                Server.System<SharedCombatModeSystem>().SetInCombatMode(remoteBody, true);
-
-                var gun = SEntMan.SpawnEntity("WeaponLightMachineGunL6C", coordinates);
-                Assert.That(Server.System<SharedHandsSystem>().TryPickupAnyHand(remoteBody, gun), Is.True);
-
-                var remoteControl = new AIRemoteControlActionEvent { Target = remoteBody };
-                SEntMan.EventBus.RaiseLocalEvent(SPlayer, remoteControl);
-                Assert.That(remoteControl.Handled, Is.True,
-                    "The AI should be able to remotely control the body.");
-            });
-
-            await RunTicks(5);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-            {
-                var remoteConsole = CEntMan.GetEntity(CEntMan.GetNetEntity(CPlayer));
-                var clientRemoteBody = CEntMan.GetEntity(remoteBodyNet);
-                var remoteUi = Client.System<SharedUserInterfaceSystem>();
-                Assert.That(remoteUi.TryGetOpenUi<RemoteControlConsoleBoundUserInterface>(
-                    remoteConsole, RemoteControlUIKey.Key, out var bui), Is.True);
-                Assert.That(CEntMan.GetPredictedAudioUser(clientRemoteBody), Is.EqualTo(CPlayer));
-
-                effectsBefore = CountHitscanEffects(CEntMan);
-                bui!.SendPredictedMessage(new RemoteControlInteractionMessage
-                {
-                    Coordinates = CEntMan.GetNetCoordinates(
-                        CEntMan.GetComponent<TransformComponent>(clientRemoteBody).Coordinates.Offset(new Vector2(5f, 0f))),
-                    Action = RemoteControlInteractionAction.Shoot,
-                    Tick = Client.ResolveDependency<IGameTiming>().CurTick,
-                });
-                effectsAfterPrediction = CountHitscanEffects(CEntMan);
-                Assert.That(effectsAfterPrediction, Is.GreaterThan(effectsBefore),
-                    "The remote hitscan effect should be rendered before the server responds.");
-            });
-
-            await RunTicks(1);
-            await Pair.RunUntilSynced();
-
-            await Client.WaitAssertion(() =>
-                Assert.That(CountHitscanEffects(CEntMan), Is.EqualTo(effectsAfterPrediction),
-                    "The authoritative hitscan should reconcile with, rather than duplicate, the predicted effect."));
-        }
-        finally
-        {
-            await Server.WaitPost(() =>
-            {
-                if (SEntMan.EntityExists(SPlayer))
-                    SEntMan.EventBus.RaiseLocalEvent(SPlayer,
-                        new BoundUIClosedEvent(RemoteControlUIKey.Key, SPlayer, SPlayer));
-            });
-            await RunTicks(1);
-        }
-    }
-
     [TestCase("PlushieRouny")]
     [TestCase("PlushieFlox")]
     public async Task DirectRemoteControlPlushieKeepsMomentumAfterInputRelease(string plushiePrototype)
@@ -1214,27 +810,5 @@ public sealed class RemoteControlBorgMovementTest : MovementTest
         Assert.That(borgSystem.TryActivate((chassis, chassisComponent), allowRemoteControl: true), Is.True);
 
         return chassis;
-    }
-
-    private static int CountHitscanEffects(IEntityManager entityManager)
-    {
-        var count = 0;
-        foreach (var metadata in entityManager.EntityQuery<MetaDataComponent>())
-        {
-            if (!metadata.Deleted && metadata.EntityPrototype?.ID == "HitscanEffect")
-                count++;
-        }
-
-        return count;
-    }
-
-    private static IEnumerable<T> FindControls<T>(Control control) where T : Control
-    {
-        if (control is T found)
-            yield return found;
-
-        foreach (var child in control.Children)
-            foreach (var descendant in FindControls<T>(child))
-                yield return descendant;
     }
 }

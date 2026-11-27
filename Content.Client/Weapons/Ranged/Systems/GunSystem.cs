@@ -406,7 +406,7 @@ public sealed partial class GunSystem : SharedGunSystem
 
         // Starlight - start
         if (_player.LocalEntity is not EntityUid entity) return;
-
+        // I checked this change. Calling this directly cost 1 additional enum and makes it more accurate
         ContinuePredictedBursts(entity);
         if (_remoteControl.ControlledEntity is { } remoteEntity && remoteEntity != entity)
             ContinuePredictedBursts(remoteEntity);
@@ -495,7 +495,7 @@ public sealed partial class GunSystem : SharedGunSystem
             ammoIndex++; // Starlight
             if (throwItems)
             {
-                Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight - preserve predicted gunshot audio for remote shooters
+                PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight - predicted gunshot audio for remote shooters
                 Recoil(user, direction, gun.Comp.CameraRecoilScalarModified);
                 fired = true; // Starlight
                 if (IsClientSide(ent!.Value))
@@ -513,7 +513,7 @@ public sealed partial class GunSystem : SharedGunSystem
                     {
                         SetCartridgeSpent(ent!.Value, cartridge, true);
                         MuzzleFlash(gun, cartridge, worldAngle, user);
-                        Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight
+                        PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight
                         Recoil(user, direction, gun.Comp.CameraRecoilScalarModified);
                         fired = true; // Starlight
                         PredictCartridge(gun, cartridge.Prototype, ammoIndex, fromMap, mapDirection, user); // Starlight
@@ -524,12 +524,12 @@ public sealed partial class GunSystem : SharedGunSystem
                     else
                     {
                         userImpulse = false;
-                        Audio.PlayPredicted(gun.Comp.SoundEmpty, gun, user);
+                        PlayPredictedAudio(gun.Comp.SoundEmpty, gun, user); // Starlight
                     }
 
                     // Starlight-start
                     if (!cartridge.DeleteOnSpawn && !Containers.IsEntityInContainer(ent!.Value) && !gun.Comp.Pump)
-                        Audio.PlayPredicted(cartridge.EjectSound, gun, user, EjectSoundParams);
+                        PlayPredictedAudio(cartridge.EjectSound, gun, user, EjectSoundParams); // Starlight
                     // Starlight-end
 
                     if (IsClientSide(ent!.Value))
@@ -538,7 +538,7 @@ public sealed partial class GunSystem : SharedGunSystem
                     break;
                 case AmmoComponent newAmmo:
                     MuzzleFlash(gun, newAmmo, worldAngle, user);
-                    Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight
+                    PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight
                     Recoil(user, direction, gun.Comp.CameraRecoilScalarModified);
                     fired = true; // Starlight
                     if (IsClientSide(ent!.Value))
@@ -547,7 +547,7 @@ public sealed partial class GunSystem : SharedGunSystem
                         RemoveShootable(ent.Value);
                     break;
                 case HitscanAmmoComponent:
-                    Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight
+                    PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight
                     Recoil(user, direction, gun.Comp.CameraRecoilScalarModified);
                     fired = true; // Starlight
                     // Starlight-start

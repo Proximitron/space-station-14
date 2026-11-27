@@ -2,6 +2,7 @@ using Content.Shared.ActionBlocker;
 using Content.Shared.Body.Organ;
 using Content.Shared.Interaction;
 using Content.Shared.Movement.Components;
+using Content.Shared._Starlight.Silicons;
 using Content.Shared.Silicons.Borgs.Components;
 using Content.Shared._Starlight.Access;
 using Robust.Shared.Containers;
@@ -62,10 +63,16 @@ public abstract partial class SharedRemoteControlConsoleSystem : EntitySystem
         return false;
     }
 
-    public EntityUid? GetPredictedAudioUser(EntityUid? user) =>
-        user is { } remoteEntity && TryGetControllerForRemoteEntity(remoteEntity, out var controller)
-            ? controller
-            : user;
+    public EntityUid? GetPredictedAudioUser(EntityUid? user)
+    {
+        if (user is not { } remoteEntity
+            || (!HasComp<RemoteControlInterfaceTargetComponent>(remoteEntity)
+                && !HasComp<RemoteControlBrainComponent>(remoteEntity))
+            || !TryGetControllerForRemoteEntity(remoteEntity, out var controller))
+            return user;
+
+        return controller;
+    }
 
     /// <summary>
     /// Checks whether the controlled remote entity is eligible to perform conscious actions.

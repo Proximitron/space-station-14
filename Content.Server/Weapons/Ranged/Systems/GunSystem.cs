@@ -126,7 +126,7 @@ public sealed partial class GunSystem : SharedGunSystem
                     else
                     {
                         userImpulse = false;
-                        Audio.PlayPredicted(gun.Comp.SoundEmpty, gun, user);
+                        PlayPredictedAudio(gun.Comp.SoundEmpty, gun, user); // Starlight
                     }
 
                     // Something like ballistic might want to leave it in the container still
@@ -161,7 +161,7 @@ public sealed partial class GunSystem : SharedGunSystem
 
                     Del(ent);
 
-                    Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight
+                    PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight
                     fired = true; // Starlight
                     break;
                 default:
@@ -235,7 +235,7 @@ public sealed partial class GunSystem : SharedGunSystem
             }
 
             MuzzleFlash(gun, ammoComp, mapDirection.ToAngle(), user);
-            Audio.PlayPredicted(gun.Comp.SoundGunshotModified, gun, EntityManager.GetPredictedAudioUser(user)); // Starlight
+            PlayPredictedAudio(gun.Comp.SoundGunshotModified, gun, user); // Starlight
         }
     }
 
