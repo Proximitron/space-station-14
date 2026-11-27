@@ -15,6 +15,7 @@ using Robust.Shared.GameObjects;
 using Robust.Shared.Graphics;
 using Robust.Shared.IoC;
 using Robust.Shared.Map;
+using Robust.Shared.Timing;
 using Robust.Client.Player;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,7 @@ namespace Content.Client._Starlight.Computers.RemoteControl;
 public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum uiKey) : BoundUserInterface(owner, uiKey)
 {
     private readonly IPlayerManager _playerManager = IoCManager.Resolve<IPlayerManager>();
+    private readonly IGameTiming _gameTiming = IoCManager.Resolve<IGameTiming>();
     private EyeLerpingSystem? _eyeLerpingSystem;
     private RemoteControlInterface _remoteControl = default!;
     private RemoteControlConsoleWindow? _window;
@@ -156,6 +158,19 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         if (_window == null)
             return;
 
+        _selectedAction = _remoteEntity switch
+        {
+            { } remoteEntity when EntMan.TryGetComponent<BorgChassisComponent>(remoteEntity, out var chassis)
+                => chassis.SelectedModule switch
+                {
+                    { } module when EntMan.TryGetComponent<SelectableBorgModuleComponent>(module, out var selectable)
+                        => selectable.ModuleSwapActionEntity,
+                    null => null,
+                    _ => _selectedAction
+                },
+            _ => _selectedAction
+        };
+
         var actions = new List<EntityUid>(_remoteActionEntities.Count);
         foreach (var action in _remoteActionEntities)
         {
@@ -252,7 +267,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
                 !remotePlacementActive && pipeLayer is null && (!activateInWorld || target is not null),
             RemoteControlInteractionAction.TryPull => target is not null,
             RemoteControlInteractionAction.Drop or RemoteControlInteractionAction.Throw
-                or RemoteControlInteractionAction.Shoot => true,
+                or RemoteControlInteractionAction.Shoot or RemoteControlInteractionAction.HeavyAttack => true,
             _ => false
         };
 
@@ -263,6 +278,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             AltInteract = altInteract,
             ActivateInWorld = activateInWorld,
             Action = action,
+            Tick = _gameTiming.CurTick,
             PipeLayer = pipeLayer,
         };
 
@@ -283,6 +299,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             Target = EntMan.GetNetEntity(target),
             AltInteract = altInteract,
             Action = action,
+            Tick = _gameTiming.CurTick,
         };
 
         var predictInteraction = action switch
@@ -290,7 +307,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             RemoteControlInteractionAction.Interact => true,
             RemoteControlInteractionAction.TryPull => true,
             RemoteControlInteractionAction.Drop or RemoteControlInteractionAction.Throw
-                or RemoteControlInteractionAction.Shoot => true,
+                or RemoteControlInteractionAction.Shoot or RemoteControlInteractionAction.HeavyAttack => true,
             _ => false
         };
 

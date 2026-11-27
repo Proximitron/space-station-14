@@ -19,12 +19,14 @@ public sealed partial class RemoteControlInterface : EntitySystem
     private TimeSpan _nextRemoteAlertUpdate;
     private readonly List<PendingBuiWindowOpen> _pendingBuiWindowOpens = [];
     private readonly List<PendingRemoteBuiOpen> _pendingRemoteBuiOpens = [];
+    private EntityUid? _remoteUiOpenContext;
     private static readonly TimeSpan RemoteBuiOpenTimeout = TimeSpan.FromSeconds(5);
 
     public EntityUid? ControlledEntity { get; private set; }
     public IEye? ControlledEye { get; private set; }
     public IViewportControl? ControlledViewport { get; private set; }
     public IViewportControl? RemoteViewport { get; private set; }
+    public UIRoot? RemoteUIRoot => _window is { Disposed: false } window ? window.RemoteUIRoot : null;
     public IEye? RemoteViewportEye => _window is { Disposed: false } window ? window.RemoteEye : null;
     public MapCoordinates? RemoteMousePosition { get; private set; }
     public event Action<EntityUid?>? ControlledEntityChanged;
@@ -107,8 +109,11 @@ public sealed partial class RemoteControlInterface : EntitySystem
     private void OnBoundUiOpened(Entity<UserInterfaceComponent> entity, ref BoundUIOpenedEvent args)
     {
         if (ControlledEntity is not { } remoteEntity
-            || args.Actor != _playerManager.LocalEntity
             || _uiManager is not { } uiManager)
+            return;
+
+        var remoteUiContext = _remoteUiOpenContext == remoteEntity;
+        if (args.Actor != _playerManager.LocalEntity && !remoteUiContext)
             return;
 
         var curTime = IoCManager.Resolve<IGameTiming>().CurTime;
@@ -116,7 +121,8 @@ public sealed partial class RemoteControlInterface : EntitySystem
         var uiKeyIdentifier = RemoteControlBuiOpenedByRemoteActorEvent.GetUiKeyIdentifier(args.UiKey);
         var ownerNetEntity = GetNetEntity(entity.Owner);
         var remoteActor = GetNetEntity(remoteEntity);
-        var remoteOriginConfirmed = TryConsumeRemoteBuiOpen(ownerNetEntity, uiKeyIdentifier, remoteActor);
+        var remoteOriginConfirmed = TryConsumeRemoteBuiOpen(ownerNetEntity, uiKeyIdentifier, remoteActor)
+                                    || remoteUiContext;
         var pendingOpen = new PendingBuiWindowOpen(
             entity.Owner,
             args.UiKey,
@@ -155,13 +161,17 @@ public sealed partial class RemoteControlInterface : EntitySystem
         if (_window is not { Disposed: false } window)
             return;
 
-        window.UpdateRemoteEye();
-
         if (curTime < _nextRemoteAlertUpdate)
             return;
 
         _nextRemoteAlertUpdate = curTime + TimeSpan.FromSeconds(1);
         window.UpdateRemoteStatus();
+    }
+
+    public void UpdateRemoteMeleeAttackHolds()
+    {
+        if (_window is { Disposed: false } window)
+            window.UpdateRemoteMeleeAttackHolds();
     }
 
     public void SetControlledEntity(EntityUid? entity, IEye? eye = null, IViewportControl? viewport = null)
@@ -186,6 +196,26 @@ public sealed partial class RemoteControlInterface : EntitySystem
 
     public bool TryEmbedWindow(EntityUid owner, BaseWindow window)
         => ControlledEntity == owner && TryEmbedWindowInternal(window);
+
+    public void RunWithRemoteUiOpenContext(EntityUid remoteEntity, Action action)
+    {
+        if (ControlledEntity != remoteEntity)
+        {
+            action();
+            return;
+        }
+
+        var previousContext = _remoteUiOpenContext;
+        _remoteUiOpenContext = remoteEntity;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _remoteUiOpenContext = previousContext;
+        }
+    }
 
     public bool TryEmbedWindow(BoundUserInterface bui, BaseWindow window)
     {

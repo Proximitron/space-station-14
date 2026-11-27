@@ -1,5 +1,6 @@
 using Robust.Shared.Serialization;
 using Robust.Shared.Map;
+using Robust.Shared.Timing;
 using Content.Shared.Atmos.Components;
 
 namespace Content.Shared._Starlight.Computers.RemoteControl;
@@ -46,6 +47,7 @@ public enum RemoteControlInteractionAction : byte
     Shoot,
     Drop,
     Throw,
+    HeavyAttack,
 }
 
 [Serializable, NetSerializable]
@@ -56,6 +58,7 @@ public sealed class RemoteControlInteractionMessage : BoundUserInterfaceMessage
     public bool AltInteract { get; init; }
     public bool ActivateInWorld { get; init; }
     public RemoteControlInteractionAction Action { get; init; }
+    public GameTick Tick { get; init; }
     public AtmosPipeLayer? PipeLayer { get; init; }
 }
 

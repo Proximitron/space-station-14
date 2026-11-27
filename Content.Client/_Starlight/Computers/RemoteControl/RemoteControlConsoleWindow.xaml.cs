@@ -97,6 +97,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     private bool _controlling;
     private bool _remoteViewEnabled = true;
     private RemoteSpeechBubbleRoot _remoteSpeechBubbleRoot = default!;
+    private RemoteControlFrameRoot _remoteControlFrameRoot = default!;
     private TextureRect? _remoteTargetCursor;
     private readonly List<(EntityUid Entity, Control Bubble, float TimeLeft)> _remoteSpeechBubbles = new();
     private bool _activeHandHasItem;
@@ -123,7 +124,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     {
         public RemoteAttackType Type { get; } = type;
         public bool AltInteract { get; } = altInteract;
-        public TimeSpan? LastPredictedAttackTime { get; set; }
+        public TimeSpan? LastPredictedShootTime { get; set; }
     }
 
     private readonly record struct SavedRemoteUse(
@@ -151,6 +152,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
 
     public IEye RemoteEye => _remoteEye;
     public IViewportControl RemoteViewport => RemoteView;
+    public UIRoot? RemoteUIRoot => RemoteView.Root;
     internal PopupContainer RemoteExaminePopupContainer { get; }
 
     public override void Close()
@@ -204,6 +206,17 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         }
     }
 
+    private sealed class RemoteControlFrameRoot : Control
+    {
+        public event Action<float>? FrameUpdated;
+
+        protected override void FrameUpdate(FrameEventArgs args)
+        {
+            base.FrameUpdate(args);
+            FrameUpdated?.Invoke(args.DeltaSeconds);
+        }
+    }
+
     protected override void Opened()
     {
         base.Opened();
@@ -233,7 +246,8 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         _examineSystem.DoExamine(
             targetEntity,
             userOverride: remoteEntity,
-            popupContainer: RemoteExaminePopupContainer);
+            popupContainer: RemoteExaminePopupContainer,
+            screenPosition: args.ScreenCoordinates);
         return true;
     }
 
@@ -424,9 +438,9 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                 return handled;
             }
 
-            if (_entityManager.System<MeleeWeaponSystem>().TryHandleRemoteHeavyAttack(
-                remoteEntity, RemoteView.PixelToMap(args.ScreenCoordinates.Position)))
+            if (_entityManager.System<MeleeWeaponSystem>().CanHandleRemoteHeavyAttack(remoteEntity))
             {
+                HandleRemoteInteraction(args, true, action: RemoteControlInteractionAction.HeavyAttack);
                 StartRemoteAttackHold(true, RemoteAttackType.MeleeHeavy, remoteEntity);
                 return true;
             }
@@ -436,7 +450,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         if (!_verbSystem.TryGetEntityMenuEntities(mapPosition, remoteEntity, _remoteEye.DrawFov, out var entities))
             return false;
 
-        _entityMenu.OpenRootMenu(entities, RemoteView.Root);
+        _entityMenu.OpenRootMenu(entities, RemoteView.Root, args.ScreenCoordinates);
         return true;
     }
 
@@ -592,14 +606,14 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         if (!IsRemoteAttackHoldEnabled(remoteEntity, type))
             return;
 
-        var interval = GetRemoteAttackInterval(remoteEntity, type);
-        if (interval <= 0f)
+        if (type == RemoteAttackType.Shoot && GetRemoteShootInterval(remoteEntity) <= 0f)
             return;
 
         var attack = new RemoteAttackHold(type, altInteract)
         {
-            LastPredictedAttackTime = _gameTiming.CurTime,
+            LastPredictedShootTime = type == RemoteAttackType.Shoot ? _gameTiming.CurTime : null,
         };
+
         if (altInteract)
             _secondaryRemoteAttack = attack;
         else
@@ -614,43 +628,64 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         if (_configurationManager.GetCVar(cvar))
             return true;
 
-        return type != RemoteAttackType.Shoot
-            && _entityManager.System<MeleeWeaponSystem>().TryGetWeapon(remoteEntity, out _, out var weapon)
-            && weapon.AutoAttack;
-    }
-
-    private float GetRemoteAttackInterval(EntityUid remoteEntity, RemoteAttackType type)
-    {
         if (type == RemoteAttackType.Shoot)
         {
-            if (!_entityManager.System<SharedGunSystem>().TryGetGun(remoteEntity, out var gun)
-                || gun.Comp.FireRateModified <= 0f)
-                return 0f;
-
-            var fireRate = gun.Comp.SelectedMode == SelectiveFire.Burst || gun.Comp.BurstActivated
-                ? gun.Comp.BurstFireRate
-                : gun.Comp.FireRateModified;
-            return fireRate > 0f ? 1f / fireRate : 0f;
+            // Full-auto and burst mode continue while held; active bursts are advanced by GunSystem.Update.
+            return _entityManager.System<SharedGunSystem>().TryGetGun(remoteEntity, out var gun)
+                    && (gun.Comp.SelectedMode == SelectiveFire.FullAuto
+                        || gun.Comp.SelectedMode == SelectiveFire.Burst
+                        || gun.Comp.BurstActivated);
         }
 
-        var meleeSystem = _entityManager.System<MeleeWeaponSystem>();
-        if (!meleeSystem.TryGetWeapon(remoteEntity, out var weaponUid, out var weapon))
-            return 0f;
-
-        var attackRate = meleeSystem.GetAttackRate(weaponUid, remoteEntity, weapon);
-        return attackRate > 0f ? 1f / attackRate : 0f;
+        return _entityManager.System<MeleeWeaponSystem>().TryGetWeapon(remoteEntity, out _, out var weapon)
+                && weapon.AutoAttack;
     }
 
-    private void UpdateRemoteAttackHolds()
+    private float GetRemoteShootInterval(EntityUid remoteEntity)
     {
-        if (_remoteControl.ControlledEntity is not { } remoteEntity || !RemoteView.Visible)
+        if (!_entityManager.System<SharedGunSystem>().TryGetGun(remoteEntity, out var gun)
+            || gun.Comp.FireRateModified <= 0f)
+            return 0f;
+
+        var fireRate = gun.Comp.SelectedMode == SelectiveFire.Burst || gun.Comp.BurstActivated
+            ? gun.Comp.BurstFireRate
+            : gun.Comp.FireRateModified;
+        return fireRate > 0f ? 1f / fireRate : 0f;
+    }
+
+    private bool TryGetRemoteAttackEntity(out EntityUid remoteEntity)
+    {
+        if (_remoteControl.ControlledEntity is { } controlledEntity && RemoteView.Visible)
         {
-            ClearRemoteAttackHolds();
-            return;
+            remoteEntity = controlledEntity;
+            return true;
         }
 
-        UpdateRemoteAttackHold(_primaryRemoteAttack, false, remoteEntity);
-        UpdateRemoteAttackHold(_secondaryRemoteAttack, true, remoteEntity);
+        ClearRemoteAttackHolds();
+        remoteEntity = default;
+        return false;
+    }
+
+    private void UpdateRemoteRangedAttackHolds()
+    {
+        if (!TryGetRemoteAttackEntity(out var remoteEntity))
+            return;
+
+        if (_primaryRemoteAttack?.Type == RemoteAttackType.Shoot)
+            UpdateRemoteAttackHold(_primaryRemoteAttack, false, remoteEntity);
+        if (_secondaryRemoteAttack?.Type == RemoteAttackType.Shoot)
+            UpdateRemoteAttackHold(_secondaryRemoteAttack, true, remoteEntity);
+    }
+
+    internal void UpdateRemoteMeleeAttackHolds()
+    {
+        if (!TryGetRemoteAttackEntity(out var remoteEntity))
+            return;
+
+        if (_primaryRemoteAttack is { Type: RemoteAttackType.MeleeLight or RemoteAttackType.MeleeHeavy } primary)
+            UpdateRemoteAttackHold(primary, false, remoteEntity);
+        if (_secondaryRemoteAttack is { Type: RemoteAttackType.MeleeLight or RemoteAttackType.MeleeHeavy } secondary)
+            UpdateRemoteAttackHold(secondary, true, remoteEntity);
     }
 
     private void UpdateRemoteAttackHold(RemoteAttackHold? attack, bool altInteract, EntityUid remoteEntity)
@@ -664,7 +699,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             return;
         }
 
-        if (GetRemoteAttackInterval(remoteEntity, attack.Type) <= 0f)
+        if (attack.Type == RemoteAttackType.Shoot && GetRemoteShootInterval(remoteEntity) <= 0f)
         {
             StopRemoteAttackHold(altInteract);
             return;
@@ -677,8 +712,9 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     private void PredictRemoteAttack(RemoteAttackHold attack, EntityUid remoteEntity)
     {
         if ((_gameTiming.InPrediction && !_gameTiming.IsFirstTimePredicted)
-            || attack.LastPredictedAttackTime == _gameTiming.CurTime
-            || !TryGetRemoteInteractionData(_remoteMouseScreenPosition, out var mapPosition, out var target,
+            || (attack.Type == RemoteAttackType.Shoot
+                && attack.LastPredictedShootTime == _gameTiming.CurTime)
+            || !TryGetRemoteInteractionData(_remoteMouseScreenPosition, out _, out var target,
                 out var coordinates))
             return;
 
@@ -693,11 +729,12 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                     || !combatMode.IsInCombatMode
                     || !guns.TryGetGun(remoteEntity, out var gun)
                     || gun.Comp.UseKey == attack.AltInteract
+                    || gun.Comp.BurstActivated
                     || gun.Comp.FireRateModified <= 0f
                     || !guns.CanShoot(gun.Comp))
                     return;
 
-                attack.LastPredictedAttackTime = currentTime;
+                attack.LastPredictedShootTime = currentTime;
                 RemoteInteractionPressed?.Invoke(
                     netCoordinates,
                     target,
@@ -720,7 +757,6 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                     || weapon.NextAttack > currentTime)
                     return;
 
-                attack.LastPredictedAttackTime = currentTime;
                 RemoteInteractionPressed?.Invoke(
                     netCoordinates,
                     target,
@@ -733,12 +769,19 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             case RemoteAttackType.MeleeHeavy:
             {
                 var melee = _entityManager.System<MeleeWeaponSystem>();
-                if (!melee.TryGetWeapon(remoteEntity, out _, out var weapon)
+                if (!melee.CanHandleRemoteHeavyAttack(remoteEntity)
+                    || !melee.TryGetWeapon(remoteEntity, out _, out var weapon)
+                    || weapon.Attacking
                     || weapon.NextAttack > currentTime)
                     return;
 
-                attack.LastPredictedAttackTime = currentTime;
-                melee.TryHandleRemoteHeavyAttack(remoteEntity, mapPosition, ignoreClientAttackState: true);
+                RemoteInteractionPressed?.Invoke(
+                    netCoordinates,
+                    target,
+                    true,
+                    false,
+                    RemoteControlInteractionAction.HeavyAttack,
+                    null);
                 break;
             }
         }
@@ -841,15 +884,6 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             ? screen.GetClickedEntity(coordinates, _remoteEye)
             : null;
 
-    protected override void FrameUpdate(FrameEventArgs args)
-    {
-        base.FrameUpdate(args);
-
-        UpdateRemoteMousePosition();
-        UpdateRemoteDragDrop(args.DeltaSeconds);
-        UpdateRemoteAttackHolds();
-    }
-
     private void UpdateRemoteDragDrop(float frameTime)
     {
         if (_savedRemoteUse is null)
@@ -863,7 +897,10 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             return;
         }
 
-        _remoteMouseScreenPosition = _inputManager.MouseScreenPosition.Position;
+        var mousePosition = _inputManager.MouseScreenPosition;
+        if (RemoteView.Window is { } window && mousePosition.Window == window.Id)
+            _remoteMouseScreenPosition = mousePosition.Position;
+
         var mapPosition = RemoteView.PixelToMap(_remoteMouseScreenPosition);
         if (_remoteMouseInViewport)
             UpdateRemoteMousePosition();
@@ -994,12 +1031,27 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         RemoteView.OnViewportMouseMove += OnRemoteViewportMouseMove;
         RemoteView.OnMouseExited += OnRemoteViewportMouseExited;
         OnViewportResized();
+
+        _remoteControlFrameRoot = new RemoteControlFrameRoot
+        {
+            MouseFilter = MouseFilterMode.Ignore,
+        };
+        _remoteControlFrameRoot.FrameUpdated += UpdateRemoteInteractionFrame;
+        RootContainer.AddChild(_remoteControlFrameRoot);
+        LayoutContainer.SetAnchorPreset(_remoteControlFrameRoot, LayoutContainer.LayoutPreset.Wide);
     }
 
     private void UpdateRemoteViewport(float frameTime)
     {
         UpdateRemoteEye();
         UpdateRemoteSpeechBubbles(frameTime);
+    }
+
+    private void UpdateRemoteInteractionFrame(float frameTime)
+    {
+        UpdateRemoteMousePosition();
+        UpdateRemoteDragDrop(frameTime);
+        UpdateRemoteRangedAttackHolds();
     }
 
     private void OnRemoteViewportMouseMove(Vector2 position)

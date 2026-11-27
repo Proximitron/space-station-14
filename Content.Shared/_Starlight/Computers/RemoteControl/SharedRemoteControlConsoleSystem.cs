@@ -62,6 +62,11 @@ public abstract partial class SharedRemoteControlConsoleSystem : EntitySystem
         return false;
     }
 
+    public EntityUid? GetPredictedAudioUser(EntityUid? user) =>
+        user is { } remoteEntity && TryGetControllerForRemoteEntity(remoteEntity, out var controller)
+            ? controller
+            : user;
+
     /// <summary>
     /// Checks whether the controlled remote entity is eligible to perform conscious actions.
     /// </summary>

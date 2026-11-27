@@ -17,6 +17,7 @@ using Content.Shared.Weapons.Melee;
 using Content.Shared.Weapons.Ranged.Systems;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
+using Robust.Shared.Player;
 
 // ReSharper disable CheckNamespace
 
@@ -29,6 +30,9 @@ public abstract partial class SharedRemoteControlConsoleSystem
     [Dependency] private InventorySystem _remoteInventory = default!;
     [Dependency] private PullingSystem _pulling = default!;
     [Dependency] private SharedStunSystem _stun = default!;
+
+    protected virtual ICommonSession? GetRemoteControllerSession(EntityUid controller)
+        => null;
 
     public override void Initialize()
     {
@@ -71,7 +75,8 @@ public abstract partial class SharedRemoteControlConsoleSystem
             && TryHandleRemoteBorgTypeAction(uid, component, remoteEntity, args.Actor))
             return;
 
-        _remoteActions.TryPerformAction(remoteEntity, action);
+        if (_remoteActions.TryPerformAction(remoteEntity, action))
+            UpdateUi(uid, component);
     }
 
     protected virtual bool TryHandleRemoteBorgTypeAction(
@@ -93,7 +98,8 @@ public abstract partial class SharedRemoteControlConsoleSystem
             return;
 
         var target = args.Target is { } targetNet ? GetEntity(targetNet) : (EntityUid?) null;
-        _remoteActions.TryPerformAction(remoteEntity, action, target, args.Coordinates);
+        if (_remoteActions.TryPerformAction(remoteEntity, action, target, args.Coordinates))
+            UpdateUi(uid, component);
     }
 
     private void OnRemoteInventory(EntityUid uid, RemoteControlConsoleComponent component,
@@ -249,9 +255,20 @@ public abstract partial class SharedRemoteControlConsoleSystem
                 if (gun.Comp.BurstActivated)
                     guns.ContinueBurst(remoteEntity, gun);
                 else
-                    guns.AttemptShoot(remoteEntity, gun, GetCoordinates(args.Coordinates), target);
+                    guns.AttemptShoot(remoteEntity, gun, GetCoordinates(args.Coordinates), target, args.Tick);
             }
 
+            UpdateUi(uid, component);
+            return;
+        }
+
+        if (args.Action == RemoteControlInteractionAction.HeavyAttack)
+        {
+            EntityManager.System<SharedMeleeWeaponSystem>().TryAttemptRemoteHeavyAttackAt(
+                remoteEntity,
+                GetCoordinates(args.Coordinates),
+                GetRemoteControllerSession(args.Actor),
+                args.Actor);
             UpdateUi(uid, component);
             return;
         }
@@ -310,7 +327,7 @@ public abstract partial class SharedRemoteControlConsoleSystem
                 .TryGetWeapon(remoteEntity, out var weaponUid, out var weapon))
         {
             EntityManager.System<SharedMeleeWeaponSystem>()
-                .TryAttemptRemoteLightAttack(remoteEntity, (weaponUid, weapon), attackTarget);
+                .TryAttemptRemoteLightAttack(remoteEntity, (weaponUid, weapon), attackTarget, args.Actor);
             UpdateUi(uid, component);
             return;
         }

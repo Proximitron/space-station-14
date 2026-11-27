@@ -1,6 +1,7 @@
 ﻿// ReSharper disable CheckNamespace
 
 using Content.Shared._Starlight.Storage;
+using Content.Shared._Starlight.Computers.RemoteControl;
 using Content.Shared.Storage.Components;
 using Content.Shared.Verbs;
 
@@ -8,6 +9,7 @@ namespace Content.Shared.Storage.EntitySystems;
 
 public abstract partial class SharedStorageSystem
 {
+    [Dependency] private SharedRemoteControlConsoleSystem _remoteControl = default!;
     [Dependency] private SharedPrivateStorageSystem _privateStorage = default!;
 
     private partial bool HandleStarlightStrippableStorageVerb(

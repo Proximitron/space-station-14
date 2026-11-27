@@ -1061,6 +1061,9 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
         }
     }
 
+    protected override ICommonSession? GetRemoteControllerSession(EntityUid controller)
+        => _playerManager.TryGetSessionByEntity(controller, out var session) ? session : null;
+
     private async void OnRemoteBuildConstruction(EntityUid uid, RemoteControlConsoleComponent component,
         RemoteControlBuildConstructionMessage args)
     {
