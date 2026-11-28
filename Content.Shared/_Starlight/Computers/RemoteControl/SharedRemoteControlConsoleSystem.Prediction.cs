@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Content.Shared.Alert;
 using Content.Shared._Starlight.Hands;
 using Content.Shared.Actions;
 using Content.Shared.Actions.Components;
@@ -27,6 +28,7 @@ public abstract partial class SharedRemoteControlConsoleSystem
 {
     [Dependency] private SharedHandsSystem _hands = default!;
     [Dependency] private SharedActionsSystem _remoteActions = default!;
+    [Dependency] private AlertsSystem _alerts = default!;
     [Dependency] private InventorySystem _remoteInventory = default!;
     [Dependency] private PullingSystem _pulling = default!;
     [Dependency] private SharedStunSystem _stun = default!;
@@ -43,6 +45,7 @@ public abstract partial class SharedRemoteControlConsoleSystem
             {
                 subs.Event<RemoteControlActionMessage>(OnRemoteAction);
                 subs.Event<RemoteControlTargetActionMessage>(OnRemoteTargetAction);
+                subs.Event<RemoteControlAlertMessage>(OnRemoteAlert);
                 subs.Event<RemoteControlInventoryMessage>(OnRemoteInventory);
                 subs.Event<RemoteControlToggleKnockdownMessage>(OnRemoteToggleKnockdown);
                 subs.Event<RemoteControlReleasePulledObjectMessage>(OnRemoteReleasePulledObject);
@@ -120,7 +123,36 @@ public abstract partial class SharedRemoteControlConsoleSystem
             case RemoteControlInventoryAction.OpenStorage:
                 OpenRemoteStorage(uid, component, remoteEntity, args.Actor, args.Slot);
                 break;
+            case RemoteControlInventoryAction.ActivateSlot:
+            case RemoteControlInventoryAction.AltActivateSlot:
+                if (!TryComp<InventoryComponent>(remoteEntity, out var remoteInventory)
+                    || !_remoteInventory.TryGetSlotEntity(remoteEntity, args.Slot, out var item, remoteInventory)
+                    || item is not { } inventoryItem)
+                    return;
+
+                if (args.Action == RemoteControlInventoryAction.ActivateSlot)
+                    _interaction.InteractionActivate(remoteEntity, inventoryItem);
+                else
+                    _interaction.UserInteraction(
+                        remoteEntity,
+                        Transform(inventoryItem).Coordinates,
+                        inventoryItem,
+                        altInteract: true);
+
+                UpdateUi(uid, component);
+                break;
         }
+    }
+
+    private void OnRemoteAlert(EntityUid uid, RemoteControlConsoleComponent component, RemoteControlAlertMessage args)
+    {
+        if (!TryGetActionableControlledEntity((uid, component), args.Actor, out var remoteEntity)
+            || !_alerts.IsShowingAlert(remoteEntity, args.Alert)
+            || !_alerts.TryGet(args.Alert, out var alert))
+            return;
+
+        if (_alerts.ActivateAlert(remoteEntity, alert))
+            UpdateUi(uid, component);
     }
 
     protected virtual void OpenRemoteStorage(
@@ -309,7 +341,9 @@ public abstract partial class SharedRemoteControlConsoleSystem
             return;
         }
 
-        if (target is { } item
+        if (!args.AltInteract
+            && !args.ActivateInWorld
+            && target is { } item
             && TryGetRemotePickupCandidate(remoteEntity, item, out var hands, out var itemComp)
             && _hands.TryPickupAnyHand(remoteEntity, item, handsComp: hands, item: itemComp))
         {

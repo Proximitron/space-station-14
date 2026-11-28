@@ -20,6 +20,7 @@ using Content.Shared._Starlight.Silicons.Borgs;
 using Content.Shared.ActionBlocker;
 using Content.Shared.Actions;
 using Content.Shared.Actions.Components;
+using Content.Shared.Alert;
 using Content.Shared.Atmos.Components;
 using Content.Shared.Bed.Sleep;
 using Content.Shared.Body.Organ;
@@ -91,6 +92,10 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
         _remoteUiMirrors = new();
     private readonly Dictionary<EntityUid, HashSet<EntityUid>> _remoteActionOverrides = new();
     private readonly Dictionary<EntityUid, TimeSpan> _channelChangeAttempts = new();
+    private readonly Dictionary<EntityUid, (EntityUid RemoteEntity, Dictionary<AlertKey, AlertState> Alerts)>
+        _remoteAlertStateSnapshots = new();
+    private static readonly TimeSpan _remoteAlertStateSyncInterval = TimeSpan.FromSeconds(1);
+    private TimeSpan _nextRemoteAlertStateSync;
 
     private readonly Dictionary<EntityUid, (EntityUid Storage, EntityUid Controller, EntityUid Remote)>
         _remoteStorageUiActors = new();
@@ -824,7 +829,8 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                         : Array.Empty<RemoteControlHandState>(),
                 Inventory = component.EnableRemoteView
                     ? GetRemoteInventory(remoteEntity)
-                    : Array.Empty<RemoteControlInventorySlotState>()
+                    : Array.Empty<RemoteControlInventorySlotState>(),
+                Alerts = UpdateRemoteAlertStateSnapshot(uid, component, remoteEntity)
             });
     }
 
@@ -900,7 +906,9 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
     }
 
     private void SetDisconnectedState(EntityUid consoleUid)
-        => _ui.SetUiState(consoleUid, RemoteControlUIKey.Key,
+    {
+        _remoteAlertStateSnapshots.Remove(consoleUid);
+        _ui.SetUiState(consoleUid, RemoteControlUIKey.Key,
             new RemoteControlConsoleBuiState
             {
                 Connected = false,
@@ -909,8 +917,10 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                 Actions = Array.Empty<NetEntity>(),
                 SelectedAction = null,
                 Hands = Array.Empty<RemoteControlHandState>(),
-                Inventory = Array.Empty<RemoteControlInventorySlotState>()
+                Inventory = Array.Empty<RemoteControlInventorySlotState>(),
+                Alerts = new()
             });
+    }
 
     [SubscribeLocalEvent]
     private void OnControlToggleMessage(EntityUid uid, RemoteControlConsoleComponent component,
@@ -1755,7 +1765,10 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
             if (!_playerManager.TryGetSessionByEntity(controller, out _))
                 continue;
 
-            _ui.OpenUi((uiEntity, null), uiKey, controller);
+            if (uiKey.Equals(StorageComponent.StorageUiKey.Key))
+                _storage.OpenRemoteStorageUiMirror(uiEntity, controller);
+            else
+                _ui.OpenUi((uiEntity, null), uiKey, controller);
 
             if (TryComp<UserInterfaceComponent>(uiEntity, out var uiComponent))
                 Dirty(uiEntity, uiComponent);
@@ -1779,6 +1792,13 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
 
         UpdatePendingRemoteBorgActivations();
         UpdateRemoteUiInteractionRanges();
+
+        // AlertsComponent is owner-only, so forward changes through active remote console UIs.
+        if (_gameTiming.CurTime >= _nextRemoteAlertStateSync)
+        {
+            _nextRemoteAlertStateSync = _gameTiming.CurTime + _remoteAlertStateSyncInterval;
+            UpdateRemoteAlertStates();
+        }
     }
 
     private void ReleaseControlIfInvalid(EntityUid user)
@@ -1798,6 +1818,7 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
     private void OnConsoleShutdown(Entity<RemoteControlConsoleComponent> entity, ref ComponentShutdown args)
     {
         _channelChangeAttempts.Remove(entity.Owner);
+        _remoteAlertStateSnapshots.Remove(entity.Owner);
 
         if (!_sharedRemoteControl.TryGetRemoteEntity((entity.Owner, entity.Comp), out var remoteEntity))
         {
@@ -1824,6 +1845,8 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
         {
             UpdateControllerIndex(entity.Owner, entity.Comp.Controller, null);
             entity.Comp.Controller = null;
+            if (controllingUser is not null)
+                SetRemoteControlNpcState(remoteEntity, false);
             UpdateRemoteBorgControlledAppearance(remoteEntity);
             if (controllingUser is not null)
                 UpdateRemoteBrainConnectedAppearance(entity.Comp.RemoteBrain, false);
@@ -1976,6 +1999,10 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
 
         UpdateControllerIndex(consoleUid, controllerBeforeUpdate, controller);
         Dirty(consoleUid, component);
+
+        if (remoteEntity is { } remoteNpcEntity
+            && (controllerBeforeUpdate is null) != (controller is null))
+            SetRemoteControlNpcState(remoteNpcEntity, controller is not null);
 
         if (controllerBeforeUpdate is { } disconnectedController
             && disconnectedController != controller
@@ -2143,6 +2170,7 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
             ? GetRemoteActionEntities(remoteEntity)
             : new HashSet<EntityUid>();
         var quickConstructionItem = component.EnableRemoteView ? GetRemoteQuickConstructionItem(remoteEntity) : null;
+        var alerts = UpdateRemoteAlertStateSnapshot(consoleUid, component, remoteEntity);
         _ui.SetUiState(consoleUid, RemoteControlUIKey.Key,
             new RemoteControlConsoleBuiState
             {
@@ -2160,8 +2188,70 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                     component.EnableRemoteView
                         ? GetRemoteInventory(remoteEntity)
                         : Array.Empty<RemoteControlInventorySlotState>(),
-                SelectedAction = component.EnableRemoteView ? GetSelectedRemoteAction(remoteEntity) : null
+                SelectedAction = component.EnableRemoteView ? GetSelectedRemoteAction(remoteEntity) : null,
+                Alerts = alerts
             });
+    }
+
+    private void UpdateRemoteAlertStates()
+    {
+        var activeConsoles = new HashSet<EntityUid>();
+        var query = EntityQueryEnumerator<RemoteControlConsoleComponent>();
+        while (query.MoveNext(out var consoleUid, out var console))
+        {
+            if (!console.EnableRemoteView
+                || console.Users.Count == 0
+                || !_sharedRemoteControl.TryGetRemoteEntity((consoleUid, console), out var remoteEntity)
+                || TerminatingOrDeleted(remoteEntity))
+                continue;
+
+            activeConsoles.Add(consoleUid);
+            var alerts = GetRemoteAlertStates(remoteEntity);
+            if (_remoteAlertStateSnapshots.TryGetValue(consoleUid, out var snapshot)
+                && snapshot.RemoteEntity == remoteEntity
+                && AlertStatesEqual(snapshot.Alerts, alerts))
+                continue;
+
+            RefreshRemoteState(consoleUid, console, remoteEntity);
+        }
+
+        foreach (var consoleUid in _remoteAlertStateSnapshots.Keys.Where(uid => !activeConsoles.Contains(uid)).ToArray())
+            _remoteAlertStateSnapshots.Remove(consoleUid);
+    }
+
+    private Dictionary<AlertKey, AlertState> UpdateRemoteAlertStateSnapshot(
+        EntityUid consoleUid,
+        RemoteControlConsoleComponent component,
+        EntityUid remoteEntity)
+    {
+        if (!component.EnableRemoteView)
+        {
+            _remoteAlertStateSnapshots.Remove(consoleUid);
+            return new();
+        }
+
+        var alerts = GetRemoteAlertStates(remoteEntity);
+        _remoteAlertStateSnapshots[consoleUid] = (remoteEntity, alerts);
+        return alerts;
+    }
+
+    private Dictionary<AlertKey, AlertState> GetRemoteAlertStates(EntityUid remoteEntity)
+        => TryComp<AlertsComponent>(remoteEntity, out var alerts)
+            ? new Dictionary<AlertKey, AlertState>(alerts.Alerts)
+            : new Dictionary<AlertKey, AlertState>();
+
+    private static bool AlertStatesEqual(
+        IReadOnlyDictionary<AlertKey, AlertState> first,
+        IReadOnlyDictionary<AlertKey, AlertState> second)
+    {
+        if (first.Count != second.Count)
+            return false;
+
+        foreach (var (key, state) in first)
+            if (!second.TryGetValue(key, out var other) || state != other)
+                return false;
+
+        return true;
     }
 
     private EntityUid? GetRemoteQuickConstructionItem(EntityUid remoteEntity)
@@ -2225,6 +2315,7 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                 Group = slot.SlotGroup,
                 TextureName = "Slots/" + slot.TextureName,
                 FullTextureName = slot.FullTextureName,
+                ButtonOffset = slot.UIWindowPosition,
                 Item = item is { } equipped ? GetNetEntity(equipped) : null,
                 HasStorage = item is { } storageItem && HasComp<StorageComponent>(storageItem)
             });

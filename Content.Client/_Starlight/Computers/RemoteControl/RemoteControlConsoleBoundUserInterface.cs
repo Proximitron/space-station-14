@@ -2,6 +2,7 @@ using Content.Client.Eye;
 using Content.Client.Construction;
 using Content.Client._DEN.QuickConstruction.UI;
 using Content.Client._Starlight.UserInterface;
+using Content.Shared.Alert;
 using Content.Shared._Starlight.Computers.RemoteControl;
 using Content.Shared._DEN.QuickConstruction.Events;
 using Content.Shared.Atmos.Components;
@@ -15,6 +16,7 @@ using Robust.Shared.GameObjects;
 using Robust.Shared.Graphics;
 using Robust.Shared.IoC;
 using Robust.Shared.Map;
+using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 using Robust.Client.Player;
 using System.Collections.Generic;
@@ -56,6 +58,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
         _window.RemoteDragDropPressed += RemoteDragDropPressed;
         _window.RemoteActionPressed += RemoteActionPressed;
         _window.RemoteTargetActionPressed += RemoteTargetActionPressed;
+        _window.RemoteAlertPressed += RemoteAlertPressed;
         _window.RemoteHandPressed += RemoteHandPressed;
         _window.RemoteInventoryPressed += RemoteInventoryPressed;
         _window.InitializeViewport();
@@ -106,6 +109,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             window.SetRemoteEntity(null);
         }
 
+        window.SetRemoteAlerts(remoteState.Alerts);
         window.SetRemoteViewEnabled(remoteState.EnableRemoteView);
         window.SetConnected(remoteState.Connected);
         var controlling = remoteState.Controller is { } controller
@@ -221,6 +225,14 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             Coordinates = coordinates,
         });
 
+    private void RemoteAlertPressed(ProtoId<AlertPrototype> alert)
+    {
+        if (_remoteControl.ControlledEntity is null)
+            return;
+
+        SendPredictedMessage(new RemoteControlAlertMessage { Alert = alert });
+    }
+
     private void OnRemoteItemConstruction(string prototypeName)
         => SendMessage(new RemoteControlBuildItemConstructionMessage { PrototypeName = prototypeName });
 
@@ -288,7 +300,11 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             SendMessage(message);
     }
 
-    private void OnRemoteMenuInteraction(EntityUid target, bool altInteract, RemoteControlInteractionAction action)
+    private void OnRemoteMenuInteraction(
+        EntityUid target,
+        bool altInteract,
+        bool activateInWorld,
+        RemoteControlInteractionAction action)
     {
         if (_remoteEntity is null)
             return;
@@ -298,6 +314,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             Coordinates = EntMan.GetNetCoordinates(EntMan.GetComponent<TransformComponent>(target).Coordinates),
             Target = EntMan.GetNetEntity(target),
             AltInteract = altInteract,
+            ActivateInWorld = activateInWorld,
             Action = action,
             Tick = _gameTiming.CurTick,
         };
@@ -330,7 +347,9 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
     private void RemoteInventoryPressed(string slot, RemoteControlInventoryAction action)
     {
         var message = new RemoteControlInventoryMessage { Slot = slot, Action = action };
-        if (action == RemoteControlInventoryAction.UseSlot)
+        if (action is RemoteControlInventoryAction.UseSlot
+            or RemoteControlInventoryAction.ActivateSlot
+            or RemoteControlInventoryAction.AltActivateSlot)
             SendPredictedMessage(message);
         else
             SendMessage(message);
@@ -378,6 +397,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
                 window.RemoteInteractionPressed -= RemoteInteractionPressed;
                 window.RemoteDragDropPressed -= RemoteDragDropPressed;
                 window.RemoteActionPressed -= RemoteActionPressed;
+                window.RemoteAlertPressed -= RemoteAlertPressed;
                 window.RemoteHandPressed -= RemoteHandPressed;
                 window.RemoteInventoryPressed -= RemoteInventoryPressed;
                 window.SetRemoteEye(null);

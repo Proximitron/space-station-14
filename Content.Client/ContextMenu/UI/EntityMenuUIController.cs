@@ -176,6 +176,7 @@ namespace Content.Client.ContextMenu.UI
                         action = RemoteControlInteractionAction.MovePulledObject;
                     _remoteControl.RequestInteraction(entity.Value,
                         args.Function == ContentKeyFunctions.AltActivateItemInWorld,
+                        args.Function == ContentKeyFunctions.ActivateItemInWorld,
                         action);
                     _context.Close();
                     args.Handle();

@@ -1,5 +1,6 @@
 using Content.Shared.Hands.EntitySystems;
 using Content.Shared._Starlight.Computers.RemoteControl;
+using Robust.Client.Graphics;
 using Robust.Shared.Graphics;
 using Robust.Shared.Map;
 using Robust.Shared.Timing;
@@ -30,7 +31,7 @@ public sealed partial class RemoteControlInterface : EntitySystem
     public IEye? RemoteViewportEye => _window is { Disposed: false } window ? window.RemoteEye : null;
     public MapCoordinates? RemoteMousePosition { get; private set; }
     public event Action<EntityUid?>? ControlledEntityChanged;
-    public event Action<EntityUid, bool, RemoteControlInteractionAction>? InteractionRequested;
+    public event Action<EntityUid, bool, bool, RemoteControlInteractionAction>? InteractionRequested;
     public event Action<string>? ItemConstructionRequested;
 
     public override void Initialize()
@@ -113,7 +114,9 @@ public sealed partial class RemoteControlInterface : EntitySystem
             return;
 
         var remoteUiContext = _remoteUiOpenContext == remoteEntity;
-        if (args.Actor != _playerManager.LocalEntity && !remoteUiContext)
+        if (args.Actor != _playerManager.LocalEntity
+            && args.Actor != remoteEntity
+            && !remoteUiContext)
             return;
 
         var curTime = IoCManager.Resolve<IGameTiming>().CurTime;
@@ -144,6 +147,28 @@ public sealed partial class RemoteControlInterface : EntitySystem
     {
         _window = window;
         RemoteViewport = window?.RemoteViewport;
+    }
+
+    public bool TryGetViewportEntity(in OverlayDrawArgs args, out EntityUid entity)
+    {
+        if (ControlledEntity is { } remoteEntity
+            && ((ControlledViewport is { } remoteViewport && args.ViewportControl == remoteViewport)
+                || (ControlledEye is { } remoteEye && args.Viewport.Eye == remoteEye)))
+        {
+            entity = remoteEntity;
+            return true;
+        }
+
+        if (_playerManager.LocalSession?.AttachedEntity is { } localEntity
+            && TryComp(localEntity, out EyeComponent? eye)
+            && args.Viewport.Eye == eye.Eye)
+        {
+            entity = localEntity;
+            return true;
+        }
+
+        entity = default;
+        return false;
     }
 
     public PopupContainer? GetExaminePopupContainer(EntityUid examiner)
@@ -317,8 +342,12 @@ public sealed partial class RemoteControlInterface : EntitySystem
                 ? localEntity ?? owner
                 : null;
 
-    public void RequestInteraction(EntityUid target, bool altInteract, RemoteControlInteractionAction action = RemoteControlInteractionAction.Interact)
-        => InteractionRequested?.Invoke(target, altInteract, action);
+    public void RequestInteraction(
+        EntityUid target,
+        bool altInteract,
+        bool activateInWorld,
+        RemoteControlInteractionAction action = RemoteControlInteractionAction.Interact)
+        => InteractionRequested?.Invoke(target, altInteract, activateInWorld, action);
 
     private sealed class PendingBuiWindowOpen
     {

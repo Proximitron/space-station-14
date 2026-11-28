@@ -4,6 +4,7 @@ using Content.Client.Interaction;
 using Content.Client.ContextMenu.UI;
 using Content.Client.Construction;
 using Content.Client.Verbs;
+using Content.Client.Verbs.UI;
 using Content.Client.Weapons.Melee;
 using Robust.Client.Graphics;
 using Robust.Client.Input;
@@ -74,6 +75,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     [Dependency] private IStateManager _stateManager = default!;
     [Dependency] private IEntityManager _entityManager = default!;
     private readonly EntityMenuUIController _entityMenu;
+    private readonly VerbMenuUIController _verbMenu;
     private readonly RemoteControlInterface _remoteControl;
     private readonly SharedMapSystem _mapManager;
     private readonly ExamineSystem _examineSystem;
@@ -89,6 +91,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     private readonly ItemStatusPanel _activeDeviceStatusPanel;
     private readonly TextureButton _inventoryToggleButton;
     private readonly Dictionary<string, SlotButton> _inventorySlotButtons = new();
+    private readonly Dictionary<string, (Vector2i ButtonOffset, string Group)> _inventorySlotLayouts = new();
     private readonly Robust.Shared.Graphics.Eye _remoteEye = new();
     private IEye? _sourceEye;
     private EntityUid? _remoteEntity;
@@ -166,6 +169,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     public RemoteControlConsoleWindow()
     {
         RobustXamlLoader.Load(this);
+        LayoutContainer.SetAnchorAndMarginPreset(RemoteAlerts, LayoutContainer.LayoutPreset.CenterRight, margin: 10);
         IoCManager.InjectDependencies(this);
         RemoteExaminePopupContainer = new PopupContainer
         {
@@ -187,8 +191,10 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         InitializeRemoteStatus();
         _mapManager = _entityManager.System<SharedMapSystem>();
         _remoteControl = _entityManager.System<RemoteControlInterface>();
-        _entityMenu = IoCManager.Resolve<IUserInterfaceManager>().GetUIController<EntityMenuUIController>();
-        _chatController = IoCManager.Resolve<IUserInterfaceManager>().GetUIController<ChatUIController>();
+        var userInterfaceManager = IoCManager.Resolve<IUserInterfaceManager>();
+        _entityMenu = userInterfaceManager.GetUIController<EntityMenuUIController>();
+        _verbMenu = userInterfaceManager.GetUIController<VerbMenuUIController>();
+        _chatController = userInterfaceManager.GetUIController<ChatUIController>();
         _chatController.MessageAdded += OnChatMessageAdded;
         _examineSystem = _entityManager.System<ExamineSystem>();
         _verbSystem = _entityManager.System<VerbSystem>();
@@ -982,6 +988,19 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             }
 
             position.Y += (RemoteStorageContainer.Size.Y - window.DesiredSize.Y) / 2f;
+            if (RootContainer.Root is { } root)
+            {
+                var overlayOffset = RemoteWindowOverlay.GlobalPosition - root.GlobalPosition;
+                var minPosition = -overlayOffset;
+                var maxPosition = root.Size - window.DesiredSize - overlayOffset;
+                position = Vector2.Clamp(position, minPosition, Vector2.Max(maxPosition, minPosition));
+            }
+            else
+            {
+                var maxPosition = Vector2.Max(RemoteWindowOverlay.Size - window.DesiredSize, Vector2.Zero);
+                position = Vector2.Clamp(position, Vector2.Zero, maxPosition);
+            }
+
             LayoutContainer.SetPosition(window, position);
             return;
         }
@@ -1132,6 +1151,9 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         ControlButton.Visible = connected;
         ActionButtons.Visible = connected;
         HandButtons.Visible = connected;
+        FunctionalHandButtons.Visible = connected;
+        SecondHotbarButtons.Visible = connected;
+        MainHotbarButtons.Visible = connected;
         _inventoryToggleButton.Visible = connected;
         InventoryButtons.Visible = connected && _inventoryOpen;
         RemoteAlerts.Visible = connected;
@@ -1160,6 +1182,8 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         ControlButton.Disabled = occupied && !controlling;
         UpdateRemoteViewVisibility(_remoteEntity != null);
         _inventoryToggleButton.MouseFilter = controlling ? MouseFilterMode.Pass : MouseFilterMode.Ignore;
+        SecondHotbarButtons.MouseFilter = controlling ? MouseFilterMode.Pass : MouseFilterMode.Ignore;
+        MainHotbarButtons.MouseFilter = controlling ? MouseFilterMode.Pass : MouseFilterMode.Ignore;
         InventoryButtons.Visible = controlling && _inventoryOpen;
     }
 
@@ -1359,10 +1383,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         _remoteControl.SetRemoteMousePosition(null);
         ClearRemoteSpeechBubbles();
         _remoteEntity = entity;
-        if (entity is { } remoteEntity)
-            UpdateRemoteStatus(remoteEntity);
-        else
-            ClearRemoteStatus();
+        ClearRemoteStatus();
     }
 
     protected override void KeyBindDown(GUIBoundKeyEventArgs args)
@@ -1468,8 +1489,18 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
 
     public void SetHands(IEnumerable<RemoteControlHandState> hands)
     {
-        HandButtons.RemoveAllChildren();
-        var activeHand = hands.FirstOrDefault(hand => hand.Active);
+        var handStates = hands.ToArray();
+        HandButtons.ClearButtons();
+        FunctionalHandButtons.ClearButtons();
+
+        var remoteHands = _remoteEntity is { } remoteEntity
+            && _entityManager.TryGetComponent<HandsComponent>(remoteEntity, out var handsComponent)
+                ? handsComponent
+                : null;
+        HandButtons.PlayerHandsComponent = remoteHands;
+        FunctionalHandButtons.PlayerHandsComponent = remoteHands;
+
+        var activeHand = handStates.FirstOrDefault(hand => hand.Active);
         _activeHandHasItem = activeHand?.HeldItem != null;
         var activeEntity = activeHand?.HeldItem is { } activeItem
             && _entityManager.TryGetEntity(activeItem, out var resolvedEntity)
@@ -1477,7 +1508,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                 : (EntityUid?)null;
         _activeDeviceStatusPanel.Update(activeEntity, hand: null);
 
-        foreach (var hand in hands)
+        foreach (var hand in handStates)
         {
             var handButton = new HandButton(hand.Name, hand.Location);
             EntityUid? heldEntity = null;
@@ -1493,7 +1524,11 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
 
             handButton.Highlight = hand.Active;
             handButton.Pressed += (args, _) => OnRemoteHandButtonPressed(args, hand);
-            HandButtons.AddChild(handButton);
+
+            var container = hand.Location == HandLocation.Functional
+                ? FunctionalHandButtons
+                : HandButtons;
+            container.TryAddButton(handButton);
         }
     }
 
@@ -1547,19 +1582,65 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             : RemoteControlHandAction.MoveToActive;
     }
 
+    private void OnRemoteInventorySlotPressed(GUIBoundKeyEventArgs args, SlotControl control)
+    {
+        if (!_controlling)
+            return;
+
+        if (args.Function == EngineKeyFunctions.UIClick)
+            RemoteInventoryPressed?.Invoke(control.SlotName, RemoteControlInventoryAction.UseSlot);
+        else if (args.Function == ContentKeyFunctions.ActivateItemInWorld)
+        {
+            if (control.Entity is not null)
+                RemoteInventoryPressed?.Invoke(control.SlotName, RemoteControlInventoryAction.ActivateSlot);
+        }
+        else if (args.Function == ContentKeyFunctions.AltActivateItemInWorld)
+        {
+            if (control.Entity is not null)
+                RemoteInventoryPressed?.Invoke(control.SlotName, RemoteControlInventoryAction.AltActivateSlot);
+        }
+        else if (args.Function == EngineKeyFunctions.UseSecondary)
+        {
+            if (control.Entity is { } item)
+                _verbMenu.OpenVerbMenu(item);
+        }
+        else if (args.Function == ContentKeyFunctions.ExamineEntity)
+        {
+            if (control.Entity is { } item && _remoteEntity is { } remoteEntity)
+                _examineSystem.DoExamine(
+                    item,
+                    userOverride: remoteEntity,
+                    popupContainer: RemoteExaminePopupContainer);
+        }
+        else
+            return;
+
+        args.Handle();
+    }
+
     public void SetInventory(IEnumerable<RemoteControlInventorySlotState> inventory)
     {
         var slots = inventory.ToArray();
         var slotNames = slots.Select(slot => slot.Name).ToHashSet();
+        var layoutChanged = slots.Length != _inventorySlotButtons.Count;
         foreach (var name in _inventorySlotButtons.Keys.Where(name => !slotNames.Contains(name)).ToArray())
         {
-            _inventorySlotButtons[name].Orphan();
             _inventorySlotButtons.Remove(name);
+            _inventorySlotLayouts.Remove(name);
+            layoutChanged = true;
         }
 
-        var index = 0;
         foreach (var slot in slots)
         {
+            if (!_inventorySlotLayouts.TryGetValue(slot.Name, out var layout)
+                || layout.ButtonOffset != slot.ButtonOffset
+                || layout.Group != slot.Group)
+            {
+                layoutChanged = true;
+            }
+
+            _inventorySlotLayouts[slot.Name] = (slot.ButtonOffset, slot.Group);
+
             EntityUid? slotEntity = null;
             if (slot.Item is { } item)
                 _entityManager.TryGetEntity(item, out slotEntity);
@@ -1567,20 +1648,70 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             if (!_inventorySlotButtons.TryGetValue(slot.Name, out var slotButton))
             {
                 slotButton = new SlotButton { StorageTexturePath = "Slots/back", SlotName = slot.Name, };
-                slotButton.Pressed += (_, _) =>
-                    RemoteInventoryPressed?.Invoke(slot.Name, RemoteControlInventoryAction.UseSlot);
-                slotButton.StoragePressed += (_, _) =>
+                slotButton.Pressed += OnRemoteInventorySlotPressed;
+                slotButton.StoragePressed += (args, _) =>
+                {
+                    if (!_controlling)
+                        return;
+
                     RemoteInventoryPressed?.Invoke(slot.Name, RemoteControlInventoryAction.OpenStorage);
+                    args.Handle();
+                };
                 _inventorySlotButtons.Add(slot.Name, slotButton);
-                InventoryButtons.AddChild(slotButton);
+                layoutChanged = true;
             }
 
             slotButton.ButtonTexturePath = slot.TextureName;
             slotButton.FullButtonTexturePath = slot.FullTextureName;
             slotButton.SetEntity(slotEntity);
             slotButton.StorageButton.Visible = slot.HasStorage;
-            slotButton.SetPositionInParent(index);
-            index++;
+        }
+
+        if (!layoutChanged)
+            return;
+
+        InventoryButtons.ClearButtons();
+        InventoryButtons.RemoveAllChildren();
+        SecondHotbarButtons.ClearButtons();
+        SecondHotbarButtons.RemoveAllChildren();
+        MainHotbarButtons.ClearButtons();
+        MainHotbarButtons.RemoveAllChildren();
+
+        var bodySlots = slots.Where(slot => slot.Group == "Default").ToArray();
+        var maxColumns = bodySlots.Length == 0 ? 3 : bodySlots.Max(slot => slot.ButtonOffset.X) + 1;
+        var bodySlotGroups = bodySlots
+            .GroupBy(slot => slot.ButtonOffset.Y * maxColumns + slot.ButtonOffset.X)
+            .ToArray();
+        var bodySlotsByIndex = bodySlotGroups.ToDictionary(group => group.Key, group => group.First());
+        var additionalSlots = slots.Where(slot => slot.Group != "Default"
+                                                 && slot.Group != "MainHotbar"
+                                                 && slot.Group != "SecondHotbar").ToList();
+        additionalSlots.AddRange(bodySlotGroups.SelectMany(group => group.Skip(1)));
+
+        InventoryButtons.MaxColumns = maxColumns;
+        InventoryButtons.Columns = maxColumns;
+        var bodyGridLength = bodySlotsByIndex.Count == 0 ? 1 : bodySlotsByIndex.Keys.Max() + 1;
+        for (var index = 0; index < bodyGridLength; index++)
+        {
+            if (bodySlotsByIndex.TryGetValue(index, out var slot))
+                InventoryButtons.TryAddButton(_inventorySlotButtons[slot.Name]);
+            else
+                InventoryButtons.AddChild(new Control { MinSize = new Vector2(64, 64) });
+        }
+
+        foreach (var slot in additionalSlots)
+        {
+            InventoryButtons.TryAddButton(_inventorySlotButtons[slot.Name]);
+        }
+
+        foreach (var slot in slots.Where(slot => slot.Group == "SecondHotbar"))
+        {
+            SecondHotbarButtons.TryAddButton(_inventorySlotButtons[slot.Name]);
+        }
+
+        foreach (var slot in slots.Where(slot => slot.Group == "MainHotbar"))
+        {
+            MainHotbarButtons.TryAddButton(_inventorySlotButtons[slot.Name]);
         }
     }
 

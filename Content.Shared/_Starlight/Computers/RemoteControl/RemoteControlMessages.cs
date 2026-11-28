@@ -2,6 +2,8 @@ using Robust.Shared.Serialization;
 using Robust.Shared.Map;
 using Robust.Shared.Timing;
 using Content.Shared.Atmos.Components;
+using Content.Shared.Alert;
+using Robust.Shared.Prototypes;
 
 namespace Content.Shared._Starlight.Computers.RemoteControl;
 
@@ -130,6 +132,8 @@ public enum RemoteControlInventoryAction : byte
 {
     UseSlot,
     OpenStorage,
+    ActivateSlot,
+    AltActivateSlot,
 }
 
 [Serializable, NetSerializable]
@@ -137,6 +141,12 @@ public sealed class RemoteControlInventoryMessage : BoundUserInterfaceMessage
 {
     public required string Slot { get; init; }
     public required RemoteControlInventoryAction Action { get; init; }
+}
+
+[Serializable, NetSerializable]
+public sealed class RemoteControlAlertMessage : BoundUserInterfaceMessage
+{
+    public required ProtoId<AlertPrototype> Alert { get; init; }
 }
 
 [Serializable, NetSerializable]
