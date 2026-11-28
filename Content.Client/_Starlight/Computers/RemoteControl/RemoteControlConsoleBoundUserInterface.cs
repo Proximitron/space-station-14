@@ -33,6 +33,7 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
     private RemoteControlInterface _remoteControl = default!;
     private RemoteControlConsoleWindow? _window;
     private EntityUid? _remoteEntity;
+    private bool _controlling;
     private QuickConstructionBoundUserInterface? _remoteQuickConstruction;
     private EntityUid? _remoteQuickConstructionItem;
     private readonly List<NetEntity> _remoteActionEntities = new();
@@ -81,6 +82,11 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             || _window is not { Disposed: false } window)
             return;
 
+        var previouslyDisplayedRemote = _remoteEntity;
+        var wasControlling = _controlling
+            && previouslyDisplayedRemote is { } previousRemote
+            && _remoteControl.ControlledEntity == previousRemote;
+
         if (remoteState.RemoteEntity is { } entity && EntMan.TryGetEntity(entity, out EntityUid? remoteEntity)
             && remoteEntity is { } remoteUid
             && EntMan.TryGetComponent<EyeComponent>(remoteUid, out var eye))
@@ -117,9 +123,18 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             && controllerEntity == _playerManager.LocalEntity;
 
         window.SetControlState(controlling, remoteState.Controller != null);
-        _remoteControl.SetControlledEntity(controlling ? _remoteEntity : null,
-            controlling ? window.RemoteEye : null,
-            controlling ? window.RemoteViewport : null);
+        if (controlling)
+        {
+            _remoteControl.SetControlledEntity(_remoteEntity, window.RemoteEye, window.RemoteViewport);
+        }
+        else if ((wasControlling && _remoteControl.ControlledEntity == previouslyDisplayedRemote)
+                 || (_remoteEntity is { } displayedRemote
+                     && _remoteControl.ControlledEntity == displayedRemote))
+        {
+            _remoteControl.SetControlledEntity(null);
+        }
+
+        _controlling = controlling;
 
         _remoteActionEntities.Clear();
         _remoteActionEntities.AddRange(remoteState.Actions);
@@ -379,7 +394,11 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             _remoteControl.InteractionRequested -= OnRemoteMenuInteraction;
             _remoteControl.ItemConstructionRequested -= OnRemoteItemConstruction;
             _remoteControl.SetStatusWindow(null);
-            _remoteControl.SetControlledEntity(null);
+            if (_controlling
+                && _remoteEntity is { } controlledEntity
+                && _remoteControl.ControlledEntity == controlledEntity)
+                _remoteControl.SetControlledEntity(null);
+            _controlling = false;
 
             if (_remoteEntity is { } remoteEntity)
                 _eyeLerpingSystem?.RemoveEye(remoteEntity);

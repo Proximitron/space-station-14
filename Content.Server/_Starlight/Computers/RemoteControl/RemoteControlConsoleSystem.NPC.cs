@@ -1,3 +1,4 @@
+using Content.Server.NPC.HTN;
 using Content.Server.NPC.Systems;
 using Content.Shared._Starlight.Computers.RemoteControl;
 
@@ -17,6 +18,6 @@ public sealed partial class RemoteControlConsoleSystem
         else
             RemComp<RemoteControlControlledComponent>(remoteEntity);
 
-        _npc.OnRemoteControlChanged(remoteEntity, controlled);
+        _npc.OnRemoteControlChanged(new Entity<HTNComponent?>(remoteEntity, null), controlled);
     }
 }

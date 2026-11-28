@@ -1,3 +1,4 @@
+using Content.Server.NPC.HTN;
 using Content.Shared.Mind.Components;
 
 // ReSharper disable CheckNamespace
@@ -6,20 +7,26 @@ namespace Content.Server.NPC.Systems;
 
 public sealed partial class NPCSystem
 {
-    public void OnRemoteControlChanged(EntityUid uid, bool controlled)
+    /// <summary>
+    /// Sleeps the NPC when remote control is acquired and wakes it on release only when it is eligible.
+    /// </summary>
+    public void OnRemoteControlChanged(Entity<HTNComponent?> entity, bool controlled)
     {
+        if (!Resolve(entity.Owner, ref entity.Comp, false))
+            return;
+
         if (controlled)
         {
-            SleepNPC(uid);
+            SleepNPC(entity.Owner, entity.Comp);
             return;
         }
 
-        if (_mobState.IsIncapacitated(uid) || TerminatingOrDeleted(uid))
+        if (_mobState.IsIncapacitated(entity.Owner) || TerminatingOrDeleted(entity.Owner))
             return;
 
-        if (TryComp<MindContainerComponent>(uid, out var mindContainer) && mindContainer.HasMind)
+        if (TryComp<MindContainerComponent>(entity.Owner, out var mindContainer) && mindContainer.HasMind)
             return;
 
-        WakeNPC(uid);
+        WakeNPC(entity.Owner, entity.Comp);
     }
 }

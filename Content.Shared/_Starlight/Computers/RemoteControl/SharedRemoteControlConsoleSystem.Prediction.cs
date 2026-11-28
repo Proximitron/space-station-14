@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Content.Shared.Alert;
 using Content.Shared._Starlight.Hands;
+using Content.Shared._Starlight.Weapons.DualWield;
 using Content.Shared.Actions;
 using Content.Shared.Actions.Components;
 using Content.Shared.Atmos.Components;
@@ -287,7 +288,14 @@ public abstract partial class SharedRemoteControlConsoleSystem
                 if (gun.Comp.BurstActivated)
                     guns.ContinueBurst(remoteEntity, gun);
                 else
-                    guns.AttemptShoot(remoteEntity, gun, GetCoordinates(args.Coordinates), target, args.Tick);
+                {
+                    var fired = guns.AttemptShoot(remoteEntity, gun, GetCoordinates(args.Coordinates), target, args.Tick);
+                    if (fired && TryComp<DualWieldComponent>(remoteEntity, out var dualWield) && dualWield.Active)
+                    {
+                        dualWield.NextIsLeft = !dualWield.NextIsLeft;
+                        Dirty(remoteEntity, dualWield);
+                    }
+                }
             }
 
             UpdateUi(uid, component);

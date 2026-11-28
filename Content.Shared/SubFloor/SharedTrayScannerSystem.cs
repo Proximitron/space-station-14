@@ -5,6 +5,7 @@ using Content.Shared.Interaction;
 using Content.Shared.Inventory.Events;
 using Content.Shared.Verbs;
 using Content.Shared._Starlight.Computers.RemoteControl;
+using Content.Shared.Timing;
 using Robust.Shared.Audio;
 using Robust.Shared.Audio.Systems;
 using Robust.Shared.Network;
@@ -17,6 +18,8 @@ public abstract partial class SharedTrayScannerSystem : EntitySystem
     [Dependency] private SharedAppearanceSystem _appearance = default!; // starlight edit: removed readonly
     [Dependency] private SharedAudioSystem _audio = default!; // starlight edit: removed readonly
     [Dependency] private SharedEyeSystem _eye = default!; // starlight edit: removed readonly
+    [Dependency] private SharedRemoteControlConsoleSystem _remoteControl = default!; // Starlight
+    [Dependency] private UseDelaySystem _delay = default!; // Starlight
     [Dependency] private INetManager _netMan = default!; // starlight edit: removed readonly
 
     public const float SubfloorRevealAlpha = 0.8f;
@@ -68,6 +71,11 @@ public abstract partial class SharedTrayScannerSystem : EntitySystem
             return;
 
         // Starlight - start
+        // Preserve the cooldown for direct users without blocking remote-control mode changes.
+        if (!_remoteControl.TryGetControllerForRemoteEntity(userUid.Value, out _)
+            && !_delay.TryResetDelay(scanner, checkDelayed: true))
+            return;
+
         scanner.Comp.Mode = Next(scanner.Comp.Mode);
         Dirty(scanner);
         // Starlight - end

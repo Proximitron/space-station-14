@@ -105,6 +105,11 @@ public sealed partial class VerbMenuUIController
                 }
             }
         }
+        else if (menu.Parent != UIManager.ModalRoot)
+        {
+            menu.Orphan();
+            UIManager.ModalRoot.AddChild(menu);
+        }
 
         return UIManager.MousePositionScaled.Position;
     }

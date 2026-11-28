@@ -988,17 +988,112 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             }
 
             position.Y += (RemoteStorageContainer.Size.Y - window.DesiredSize.Y) / 2f;
+            Vector2 minPosition;
+            Vector2 maxPosition;
             if (RootContainer.Root is { } root)
             {
                 var overlayOffset = RemoteWindowOverlay.GlobalPosition - root.GlobalPosition;
-                var minPosition = -overlayOffset;
-                var maxPosition = root.Size - window.DesiredSize - overlayOffset;
-                position = Vector2.Clamp(position, minPosition, Vector2.Max(maxPosition, minPosition));
+                minPosition = -overlayOffset;
+                maxPosition = Vector2.Max(root.Size - window.DesiredSize - overlayOffset, minPosition);
             }
             else
             {
-                var maxPosition = Vector2.Max(RemoteWindowOverlay.Size - window.DesiredSize, Vector2.Zero);
-                position = Vector2.Clamp(position, Vector2.Zero, maxPosition);
+                minPosition = Vector2.Zero;
+                maxPosition = Vector2.Max(RemoteWindowOverlay.Size - window.DesiredSize, minPosition);
+            }
+
+            position = Vector2.Clamp(position, minPosition, maxPosition);
+
+            var overlapsExisting = false;
+            foreach (var child in RemoteWindowOverlay.Children)
+            {
+                if (child is not StorageWindow existing
+                    || existing == storageWindow
+                    || !existing.Visible
+                    || !StorageWindowOverlaps(position, window.DesiredSize, existing))
+                    continue;
+
+                overlapsExisting = true;
+                break;
+            }
+
+            if (overlapsExisting)
+            {
+                var positioned = false;
+                foreach (var child in RemoteWindowOverlay.Children)
+                {
+                    if (child is not StorageWindow existing
+                        || existing == storageWindow
+                        || !existing.Visible)
+                        continue;
+
+                    for (var row = 0; row < 2; row++)
+                    {
+                        var rowY = row == 0
+                            ? existing.Position.Y + existing.Size.Y
+                            : existing.Position.Y - window.DesiredSize.Y;
+                        if (rowY < minPosition.Y || rowY > maxPosition.Y)
+                            continue;
+
+                        var candidate = new Vector2(minPosition.X, rowY);
+                        while (candidate.X <= maxPosition.X)
+                        {
+                            StorageWindow? collidingWindow = null;
+                            foreach (var candidateChild in RemoteWindowOverlay.Children)
+                            {
+                                if (candidateChild is not StorageWindow other
+                                    || other == storageWindow
+                                    || !other.Visible
+                                    || !StorageWindowOverlaps(candidate, window.DesiredSize, other))
+                                    continue;
+
+                                collidingWindow = other;
+                                break;
+                            }
+
+                            if (collidingWindow is null)
+                            {
+                                position = candidate;
+                                positioned = true;
+                                break;
+                            }
+
+                            candidate.X = Math.Max(candidate.X, collidingWindow.Position.X + collidingWindow.Size.X);
+                        }
+
+                        if (positioned)
+                            break;
+                    }
+
+                    if (positioned)
+                        break;
+                }
+
+                if (!positioned)
+                {
+                    var offset = new Vector2(
+                        Math.Min(32f, window.DesiredSize.X / 4f),
+                        Math.Min(32f, window.DesiredSize.Y / 4f));
+                    for (var xDirection = -1; xDirection <= 1; xDirection += 2)
+                    {
+                        for (var yDirection = -1; yDirection <= 1; yDirection += 2)
+                        {
+                            var candidate = Vector2.Clamp(
+                                position + new Vector2(offset.X * xDirection, offset.Y * yDirection),
+                                minPosition,
+                                maxPosition);
+                            if (candidate.X == position.X && candidate.Y == position.Y)
+                                continue;
+
+                            position = candidate;
+                            positioned = true;
+                            break;
+                        }
+
+                        if (positioned)
+                            break;
+                    }
+                }
             }
 
             LayoutContainer.SetPosition(window, position);
@@ -1013,6 +1108,12 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             Vector2.Max(availableSize - desiredSize, Vector2.Zero));
         LayoutContainer.SetPosition(window, positionInRemoteWindow);
     }
+
+    private static bool StorageWindowOverlaps(Vector2 position, Vector2 size, StorageWindow existing)
+        => position.X < existing.Position.X + existing.Size.X
+            && position.X + size.X > existing.Position.X
+            && position.Y < existing.Position.Y + existing.Size.Y
+            && position.Y + size.Y > existing.Position.Y;
 
     public void ResetRemoteEye()
     {
@@ -1174,6 +1275,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         if (!controlling)
         {
             CancelRemoteDragDrop();
+            ClearRemoteAttackHolds();
             ClearRemoteSpeechBubbles();
             SetRemoteTargetAction(null);
         }
@@ -1553,7 +1655,8 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                 _examineSystem.DoExamine(
                     heldUid,
                     userOverride: remoteEntity,
-                    popupContainer: RemoteExaminePopupContainer);
+                    popupContainer: RemoteExaminePopupContainer,
+                    screenPosition: args.PointerLocation.IsValid ? args.PointerLocation : null);
             }
 
             args.Handle();
@@ -1683,9 +1786,7 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
             .GroupBy(slot => slot.ButtonOffset.Y * maxColumns + slot.ButtonOffset.X)
             .ToArray();
         var bodySlotsByIndex = bodySlotGroups.ToDictionary(group => group.Key, group => group.First());
-        var additionalSlots = slots.Where(slot => slot.Group != "Default"
-                                                 && slot.Group != "MainHotbar"
-                                                 && slot.Group != "SecondHotbar").ToList();
+        var additionalSlots = slots.Where(slot => slot.Group != "Default" && slot.Group != "MainHotbar" && slot.Group != "SecondHotbar").ToList();
         additionalSlots.AddRange(bodySlotGroups.SelectMany(group => group.Skip(1)));
 
         InventoryButtons.MaxColumns = maxColumns;

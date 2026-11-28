@@ -116,6 +116,16 @@ namespace Content.Client.Verbs.UI
 
             Close();
 
+            // Starlight - start
+            if (popup is null
+                && _remoteControl.ControlledEntity is null
+                && _context.RootMenu.Parent != UIManager.ModalRoot)
+            {
+                _context.RootMenu.Orphan();
+                UIManager.ModalRoot.AddChild(_context.RootMenu);
+            }
+            // Starlight - end
+
             var menu = popup ?? _context.RootMenu;
             menu.MenuBody.RemoveAllChildren();
 

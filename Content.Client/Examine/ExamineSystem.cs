@@ -49,6 +49,7 @@ namespace Content.Client.Examine
 
         private Popup? _examineTooltipOpen;
         private ScreenCoordinates _popupPos;
+        private ScreenCoordinates? _examineScreenPosition; // Starlight
         private CancellationTokenSource? _requestCancelTokenSource;
         private int _idCounter;
 
@@ -184,15 +185,21 @@ namespace Content.Client.Examine
             // since there's probably one open already if it's coming in from the server.
             var entity = GetEntity(ev.EntityUid);
 
+            // Starlight - start
             OpenTooltip(player.Value, entity, out _, out _, ev.CenterAtCursor, ev.OpenAtOldTooltip, ev.KnowTarget,
-                _examiningEntity, _examineTooltipRoot, _examineTooltipPopupContainer); // Starlight
+                _examiningEntity, _examineTooltipRoot, _examineTooltipPopupContainer,
+                screenPosition: _examineScreenPosition);
+            // Starlight - end
             UpdateTooltipInfo(player.Value, entity, ev.Message, ev.Verbs, getVerbs: false);
         }
 
         public override void SendExamineTooltip(EntityUid player, EntityUid target, FormattedMessage message, bool getVerbs, bool centerAtCursor)
         {
+            // Starlight - start
             OpenTooltip(player, target, out _, out _, centerAtCursor, examiner: _examiningEntity,
-                uiRoot: _examineTooltipRoot, popupContainer: _examineTooltipPopupContainer); // Starlight
+                uiRoot: _examineTooltipRoot, popupContainer: _examineTooltipPopupContainer,
+                screenPosition: _examineScreenPosition);
+            // Starlight - end
             UpdateTooltipInfo(player, target, message, getVerbs: getVerbs);
         }
 
@@ -234,8 +241,7 @@ namespace Content.Client.Examine
             {
                 _popupPos = _userInterfaceManager.ScreenToUIPosition(cursorPosition);
             }
-            else if (popupContainer != null
-                     && TryGetRemoteTooltipPosition(target, examiner, centeredOnCursor, out var remotePosition))
+            else if (popupContainer != null && TryGetRemoteTooltipPosition(target, examiner, centeredOnCursor, out var remotePosition))
             {
                 _popupPos = remotePosition;
             }
@@ -490,6 +496,7 @@ namespace Content.Client.Examine
                 popupContainer = _remoteControl.GetExaminePopupContainer(examiner);
             // Starlight - end
 
+            _examineScreenPosition = screenPosition; // Starlight
             FormattedMessage message;
 
             // Starlight - start

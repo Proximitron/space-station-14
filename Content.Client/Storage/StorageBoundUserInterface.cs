@@ -26,13 +26,13 @@ public sealed class StorageBoundUserInterface : BoundUserInterface
         _window = IoCManager.Resolve<IUserInterfaceManager>()
             .GetUIController<StorageUIController>()
             .CreateStorageWindow(this);
-        EntMan.System<RemoteControlInterface>().TryEmbedWindow(this, _window); // Starlight
 
         if (EntMan.TryGetComponent(Owner, out StorageComponent? storage))
         {
             _window.UpdateContainer((Owner, storage));
         }
 
+        EntMan.System<RemoteControlInterface>().TryEmbedWindow(this, _window); // Starlight
         _window.OnClose += Close;
         _window.FlagDirty();
     }

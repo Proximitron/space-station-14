@@ -523,6 +523,8 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
 
             if (!TerminatingOrDeleted(target))
                 SetRemoteTypingState(target, TypingIndicatorState.None);
+            if (!TerminatingOrDeleted(target) && HasComp<RemoteControlControlledComponent>(target))
+                SetRemoteControlNpcState(target, false);
             CleanupUsers(consoleEntity, target, false, false);
 
             foreach (var user in console.Users)
@@ -1793,7 +1795,7 @@ public sealed partial class RemoteControlConsoleSystem : SharedRemoteControlCons
                 continue;
 
             if (uiKey.Equals(StorageComponent.StorageUiKey.Key))
-                _storage.OpenRemoteStorageUiMirror(uiEntity, controller);
+                _storage.OpenRemoteStorageUiMirror(new Entity<StorageComponent?>(uiEntity, null), controller);
             else
                 _ui.OpenUi((uiEntity, null), uiKey, controller);
 

@@ -1,4 +1,5 @@
 using System.Linq;
+using Content.Client._Starlight.Computers.RemoteControl;
 using Content.Client.Examine;
 using Content.Client.Interaction;
 using Content.Client.Storage;
@@ -103,7 +104,7 @@ public sealed partial class StorageUIController : UIController, IOnSystemChanged
             OnPieceUnpressed(args, window, piece);
         };
 
-        if (UsesDockedWindows()) // Starlight
+        if (UsesDockedWindows() && !EntityManager.System<RemoteControlInterface>().IsRemoteBuiOpen(sBui)) // Starlight
         {
             var hotbar = UIManager.GetActiveUIWidgetOrNull<HotbarGui>();
             // this lambda handles the nested storage case

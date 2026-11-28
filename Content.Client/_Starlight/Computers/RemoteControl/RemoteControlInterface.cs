@@ -222,6 +222,33 @@ public sealed partial class RemoteControlInterface : EntitySystem
     public bool TryEmbedWindow(EntityUid owner, BaseWindow window)
         => ControlledEntity == owner && TryEmbedWindowInternal(window);
 
+    public bool IsRemoteBuiOpen(BoundUserInterface bui)
+    {
+        if (ControlledEntity is not { } remoteEntity)
+            return false;
+
+        if (_pendingBuiWindowOpens.FindLast(pending =>
+                pending.Owner == bui.Owner
+                && pending.UiKey.Equals(bui.UiKey)
+                && pending.RemoteEntity == remoteEntity
+                && pending.RemoteOriginConfirmed) is not null)
+            return true;
+
+        var uiEntity = GetNetEntity(bui.Owner);
+        var uiKey = RemoteControlBuiOpenedByRemoteActorEvent.GetUiKeyIdentifier(bui.UiKey);
+        var remoteActor = GetNetEntity(remoteEntity);
+        for (var i = _pendingRemoteBuiOpens.Count - 1; i >= 0; i--)
+        {
+            var pending = _pendingRemoteBuiOpens[i];
+            if (pending.UiEntity == uiEntity
+                && pending.UiKey == uiKey
+                && pending.RemoteActor == remoteActor)
+                return true;
+        }
+
+        return false;
+    }
+
     public void RunWithRemoteUiOpenContext(EntityUid remoteEntity, Action action)
     {
         if (ControlledEntity != remoteEntity)
@@ -254,10 +281,18 @@ public sealed partial class RemoteControlInterface : EntitySystem
             && pending.RemoteEntity == remoteEntity
             && (pending.Window is null || pending.Window == window));
         if (pendingOpen is null)
-            return false;
+            return IsRemoteBuiOpen(bui) && TryEmbedWindowInternal(window);
 
         pendingOpen.Window = window;
-        return TryEmbedPendingWindow(pendingOpen);
+        if (!IsRemoteBuiOpen(bui))
+            return TryEmbedPendingWindow(pendingOpen);
+
+        pendingOpen.RemoteOriginConfirmed = true;
+        if (!TryEmbedWindowInternal(window))
+            return TryEmbedPendingWindow(pendingOpen);
+
+        pendingOpen.EmbedScheduled = true;
+        return true;
     }
 
     private bool TryConsumeRemoteBuiOpen(NetEntity owner, string uiKey, NetEntity remoteActor)
@@ -309,6 +344,9 @@ public sealed partial class RemoteControlInterface : EntitySystem
             || window.Disposed
             || !window.IsOpen)
             return false;
+
+        if (window.Parent == remoteWindow.RemoteWindowOverlay)
+            return true;
 
         remoteWindow.EmbedWindow(window);
         return true;

@@ -12,13 +12,19 @@ public abstract partial class SharedStorageSystem
     [Dependency] private SharedRemoteControlConsoleSystem _remoteControl = default!;
     [Dependency] private SharedPrivateStorageSystem _privateStorage = default!;
 
-    public void OpenRemoteStorageUiMirror(EntityUid storage, EntityUid controller)
+    /// <summary>
+    /// Mirrors a storage UI to the controller while temporarily setting the nested-storage check flag.
+    /// </summary>
+    public void OpenRemoteStorageUiMirror(Entity<StorageComponent?> storage, EntityUid controller)
     {
+        if (!Resolve(storage.Owner, ref storage.Comp, false))
+            return;
+
         var wasNestedCheck = _nestedCheck;
         _nestedCheck = true;
         try
         {
-            UI.OpenUi((storage, null), StorageComponent.StorageUiKey.Key, controller);
+            UI.OpenUi((storage.Owner, null), StorageComponent.StorageUiKey.Key, controller);
         }
         finally
         {
