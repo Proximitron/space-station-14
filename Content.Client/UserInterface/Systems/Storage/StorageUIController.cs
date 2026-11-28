@@ -104,7 +104,7 @@ public sealed partial class StorageUIController : UIController, IOnSystemChanged
             OnPieceUnpressed(args, window, piece);
         };
 
-        if (UsesDockedWindows() && !EntityManager.System<RemoteControlInterface>().IsRemoteBuiOpen(sBui)) // Starlight
+        if (UsesDockedWindows() && !EntityManager.System<RemoteControlInterface>().IsRemoteBuiOpen(sBui, window)) // Starlight
         {
             var hotbar = UIManager.GetActiveUIWidgetOrNull<HotbarGui>();
             // this lambda handles the nested storage case

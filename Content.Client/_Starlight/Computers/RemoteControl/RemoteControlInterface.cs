@@ -222,17 +222,22 @@ public sealed partial class RemoteControlInterface : EntitySystem
     public bool TryEmbedWindow(EntityUid owner, BaseWindow window)
         => ControlledEntity == owner && TryEmbedWindowInternal(window);
 
-    public bool IsRemoteBuiOpen(BoundUserInterface bui)
+    public bool IsRemoteBuiOpen(BoundUserInterface bui, BaseWindow window)
     {
         if (ControlledEntity is not { } remoteEntity)
             return false;
 
-        if (_pendingBuiWindowOpens.FindLast(pending =>
-                pending.Owner == bui.Owner
-                && pending.UiKey.Equals(bui.UiKey)
-                && pending.RemoteEntity == remoteEntity
-                && pending.RemoteOriginConfirmed) is not null)
+        var pendingOpen = _pendingBuiWindowOpens.FindLast(pending =>
+            pending.Owner == bui.Owner
+            && pending.UiKey.Equals(bui.UiKey)
+            && pending.RemoteEntity == remoteEntity
+            && pending.RemoteOriginConfirmed
+            && (pending.Window is null || ReferenceEquals(pending.Window, window)));
+        if (pendingOpen is not null)
+        {
+            pendingOpen.Window ??= window;
             return true;
+        }
 
         var uiEntity = GetNetEntity(bui.Owner);
         var uiKey = RemoteControlBuiOpenedByRemoteActorEvent.GetUiKeyIdentifier(bui.UiKey);
@@ -279,12 +284,12 @@ public sealed partial class RemoteControlInterface : EntitySystem
             pending.Owner == bui.Owner
             && pending.UiKey.Equals(bui.UiKey)
             && pending.RemoteEntity == remoteEntity
-            && (pending.Window is null || pending.Window == window));
+            && (pending.Window is null || ReferenceEquals(pending.Window, window)));
         if (pendingOpen is null)
-            return IsRemoteBuiOpen(bui) && TryEmbedWindowInternal(window);
+            return IsRemoteBuiOpen(bui, window) && TryEmbedWindowInternal(window);
 
         pendingOpen.Window = window;
-        if (!IsRemoteBuiOpen(bui))
+        if (!IsRemoteBuiOpen(bui, window))
             return TryEmbedPendingWindow(pendingOpen);
 
         pendingOpen.RemoteOriginConfirmed = true;

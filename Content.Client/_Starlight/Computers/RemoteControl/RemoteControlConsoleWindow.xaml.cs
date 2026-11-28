@@ -104,9 +104,21 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     private TextureRect? _remoteTargetCursor;
     private readonly List<(EntityUid Entity, Control Bubble, float TimeLeft)> _remoteSpeechBubbles = new();
     private bool _activeHandHasItem;
+    private RemoteHandDisplayState[]? _displayedRemoteHandStates;
     private Vector2? _remoteWindowOverlayRootSize;
     private Vector2? _remoteWindowOverlayContainerSize;
     private readonly ChatUIController _chatController;
+
+    private readonly record struct RemoteHandDisplayState(
+        string Name,
+        HandLocation Location,
+        EntProtoId? EmptyRepresentative,
+        NetEntity? HeldItem,
+        bool Active,
+        EntityUid? ResolvedHeldItem,
+        SpriteComponent? Sprite,
+        TransformComponent? Transform);
+
     private SimpleRadialMenu? _remoteRadialMenu;
     private Vector2 _remoteMouseScreenPosition;
     private bool _remoteMouseInViewport;
@@ -1592,8 +1604,6 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
     public void SetHands(IEnumerable<RemoteControlHandState> hands)
     {
         var handStates = hands.ToArray();
-        HandButtons.ClearButtons();
-        FunctionalHandButtons.ClearButtons();
 
         var remoteHands = _remoteEntity is { } remoteEntity
             && _entityManager.TryGetComponent<HandsComponent>(remoteEntity, out var handsComponent)
@@ -1602,20 +1612,47 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         HandButtons.PlayerHandsComponent = remoteHands;
         FunctionalHandButtons.PlayerHandsComponent = remoteHands;
 
-        var activeHand = handStates.FirstOrDefault(hand => hand.Active);
-        _activeHandHasItem = activeHand?.HeldItem != null;
-        var activeEntity = activeHand?.HeldItem is { } activeItem
-            && _entityManager.TryGetEntity(activeItem, out var resolvedEntity)
-                ? resolvedEntity
-                : (EntityUid?)null;
+        var displayStates = new RemoteHandDisplayState[handStates.Length];
+        for (var index = 0; index < handStates.Length; index++)
+        {
+            var hand = handStates[index];
+            EntityUid? heldEntity = null;
+            SpriteComponent? sprite = null;
+            TransformComponent? transform = null;
+            if (hand.HeldItem is { } held && _entityManager.TryGetEntity(held, out heldEntity)
+                && heldEntity is { } entity)
+            {
+                // SpriteView caches component references, so availability is part of the display state.
+                _entityManager.TryGetComponent(entity, out sprite);
+                _entityManager.TryGetComponent(entity, out transform);
+            }
+
+            displayStates[index] = new RemoteHandDisplayState(
+                hand.Name,
+                hand.Location,
+                hand.EmptyRepresentative,
+                hand.HeldItem,
+                hand.Active,
+                heldEntity,
+                sprite,
+                transform);
+        }
+
+        var activeHandIndex = Array.FindIndex(handStates, hand => hand.Active);
+        _activeHandHasItem = activeHandIndex >= 0 && handStates[activeHandIndex].HeldItem != null;
+        var activeEntity = activeHandIndex >= 0 ? displayStates[activeHandIndex].ResolvedHeldItem : null;
         _activeDeviceStatusPanel.Update(activeEntity, hand: null);
 
-        foreach (var hand in handStates)
+        if (_displayedRemoteHandStates is not null && displayStates.SequenceEqual(_displayedRemoteHandStates))
+            return;
+
+        HandButtons.ClearButtons();
+        FunctionalHandButtons.ClearButtons();
+        for (var index = 0; index < handStates.Length; index++)
         {
+            var hand = handStates[index];
             var handButton = new HandButton(hand.Name, hand.Location);
-            EntityUid? heldEntity = null;
-            if (hand.HeldItem is { } held)
-                _entityManager.TryGetEntity(held, out heldEntity);
+            var heldEntity = displayStates[index].ResolvedHeldItem;
 
             if (heldEntity is { } entity)
                 handButton.SetEntity(entity);
@@ -1632,6 +1669,8 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
                 : HandButtons;
             container.TryAddButton(handButton);
         }
+
+        _displayedRemoteHandStates = displayStates;
     }
 
     private void OnRemoteHandButtonPressed(GUIBoundKeyEventArgs args, RemoteControlHandState hand)

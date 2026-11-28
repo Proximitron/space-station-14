@@ -188,7 +188,7 @@ namespace Content.Client.Examine
             // Starlight - start
             OpenTooltip(player.Value, entity, out _, out _, ev.CenterAtCursor, ev.OpenAtOldTooltip, ev.KnowTarget,
                 _examiningEntity, _examineTooltipRoot, _examineTooltipPopupContainer,
-                screenPosition: _examineScreenPosition);
+                screenPosition: ev.Id == 0 ? null : _examineScreenPosition);
             // Starlight - end
             UpdateTooltipInfo(player.Value, entity, ev.Message, ev.Verbs, getVerbs: false);
         }
@@ -197,8 +197,7 @@ namespace Content.Client.Examine
         {
             // Starlight - start
             OpenTooltip(player, target, out _, out _, centerAtCursor, examiner: _examiningEntity,
-                uiRoot: _examineTooltipRoot, popupContainer: _examineTooltipPopupContainer,
-                screenPosition: _examineScreenPosition);
+                uiRoot: _examineTooltipRoot, popupContainer: _examineTooltipPopupContainer);
             // Starlight - end
             UpdateTooltipInfo(player, target, message, getVerbs: getVerbs);
         }
