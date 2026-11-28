@@ -1822,10 +1822,10 @@ public sealed partial class RemoteControlConsoleWindow : PopOutFancyWindow
         var bodySlots = slots.Where(slot => slot.Group == "Default").ToArray();
         var maxColumns = bodySlots.Length == 0 ? 3 : bodySlots.Max(slot => slot.ButtonOffset.X) + 1;
         var bodySlotGroups = bodySlots
-            .GroupBy(slot => slot.ButtonOffset.Y * maxColumns + slot.ButtonOffset.X)
+            .GroupBy(slot => (slot.ButtonOffset.Y * maxColumns) + slot.ButtonOffset.X)
             .ToArray();
         var bodySlotsByIndex = bodySlotGroups.ToDictionary(group => group.Key, group => group.First());
-        var additionalSlots = slots.Where(slot => slot.Group != "Default" && slot.Group != "MainHotbar" && slot.Group != "SecondHotbar").ToList();
+        var additionalSlots = slots.Where(slot => slot.Group is not "Default" and not "MainHotbar" and not "SecondHotbar").ToList();
         additionalSlots.AddRange(bodySlotGroups.SelectMany(group => group.Skip(1)));
 
         InventoryButtons.MaxColumns = maxColumns;
