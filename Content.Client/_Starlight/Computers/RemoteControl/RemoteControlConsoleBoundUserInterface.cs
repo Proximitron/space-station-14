@@ -128,8 +128,8 @@ public sealed class RemoteControlConsoleBoundUserInterface(EntityUid owner, Enum
             _remoteControl.SetControlledEntity(_remoteEntity, window.RemoteEye, window.RemoteViewport);
         }
         else if ((wasControlling && _remoteControl.ControlledEntity == previouslyDisplayedRemote)
-                 || (_remoteEntity is { } displayedRemote
-                     && _remoteControl.ControlledEntity == displayedRemote))
+                    || (_remoteEntity is { } displayedRemote
+                        && _remoteControl.ControlledEntity == displayedRemote))
         {
             _remoteControl.SetControlledEntity(null);
         }
